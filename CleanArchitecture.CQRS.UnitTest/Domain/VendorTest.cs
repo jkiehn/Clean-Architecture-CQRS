@@ -7,6 +7,14 @@ namespace CleanArchitecture.CQRS.UnitTest.Domain;
 public class VendorTest
 {
     [Fact]
+    public void Vendor_Should_Inherit_From_ExternalAgent()
+    {
+        var vendor = new Vendor(Guid.NewGuid(), "Northwind", "sales@northwind.example");
+
+        vendor.ShouldBeAssignableTo<ExternalAgent>();
+    }
+
+    [Fact]
     public void UpdateDetails_Changes_Name_And_Email()
     {
         var vendor = new Vendor(Guid.NewGuid(), "Northwind", "sales@northwind.example");

@@ -2,7 +2,7 @@ using CleanArchitectureCQRS.Domain.ValueObjects;
 
 namespace CleanArchitectureCQRS.Domain.Entities;
 
-public class Employee : Agent
+public class Employee : InternalAgent
 {
     private string _socialSecurityNumber = string.Empty;
 

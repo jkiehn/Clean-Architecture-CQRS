@@ -2,7 +2,7 @@ using CleanArchitectureCQRS.Domain.ValueObjects;
 
 namespace CleanArchitectureCQRS.Domain.Entities;
 
-public class Customer : Agent
+public class Customer : ExternalAgent
 {
     public Customer()
     {

@@ -7,6 +7,14 @@ namespace CleanArchitecture.CQRS.UnitTest.Domain;
 public class EmployeeTest
 {
     [Fact]
+    public void Employee_Should_Inherit_From_InternalAgent()
+    {
+        var employee = new Employee(Guid.NewGuid(), "Alice Agent", "alice@example.com", "111-11-1111");
+
+        employee.ShouldBeAssignableTo<InternalAgent>();
+    }
+
+    [Fact]
     public void UpdateDetails_Changes_Name_Email_And_SocialSecurityNumber()
     {
         var employee = new Employee(Guid.NewGuid(), "Alice Agent", "alice@example.com", "111-11-1111");

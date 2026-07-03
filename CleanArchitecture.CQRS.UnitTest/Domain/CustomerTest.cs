@@ -7,6 +7,14 @@ namespace CleanArchitecture.CQRS.UnitTest.Domain;
 public class CustomerTest
 {
     [Fact]
+    public void Customer_Should_Inherit_From_ExternalAgent()
+    {
+        var customer = new Customer(Guid.NewGuid(), "Alice Agent", "alice@example.com");
+
+        customer.ShouldBeAssignableTo<ExternalAgent>();
+    }
+
+    [Fact]
     public void UpdateDetails_Changes_Name_And_Email()
     {
         var customer = new Customer(Guid.NewGuid(), "Alice Agent", "alice@example.com");
