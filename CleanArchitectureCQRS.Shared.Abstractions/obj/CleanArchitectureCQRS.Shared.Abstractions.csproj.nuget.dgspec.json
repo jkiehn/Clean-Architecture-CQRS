@@ -10,7 +10,7 @@
         "projectUniqueName": "C:\\Users\\jkieh\\source\\repos\\CQRS\\Clean-Architecture-CQRS\\CleanArchitectureCQRS.Shared.Abstractions\\CleanArchitectureCQRS.Shared.Abstractions.csproj",
         "projectName": "CleanArchitectureCQRS.Shared.Abstractions",
         "projectPath": "C:\\Users\\jkieh\\source\\repos\\CQRS\\Clean-Architecture-CQRS\\CleanArchitectureCQRS.Shared.Abstractions\\CleanArchitectureCQRS.Shared.Abstractions.csproj",
-        "packagesPath": "C:\\Users\\jkieh\\.nuget\\packages\\",
+        "packagesPath": "C:\\Users\\CodexSandboxOffline\\.nuget\\packages\\",
         "outputPath": "C:\\Users\\jkieh\\source\\repos\\CQRS\\Clean-Architecture-CQRS\\CleanArchitectureCQRS.Shared.Abstractions\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
