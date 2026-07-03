@@ -26,6 +26,10 @@ public static class MauiProgram
         {
             client.BaseAddress = new Uri(ApiBaseAddressResolver.GetDefault());
         });
+        builder.Services.AddHttpClient<ItemService>(client =>
+        {
+            client.BaseAddress = new Uri(ApiBaseAddressResolver.GetDefault());
+        });
         builder.Services.AddHttpClient<VendorService>(client =>
         {
             client.BaseAddress = new Uri(ApiBaseAddressResolver.GetDefault());
@@ -35,6 +39,7 @@ public static class MauiProgram
             client.BaseAddress = new Uri(ApiBaseAddressResolver.GetDefault());
         });
         builder.Services.AddScoped<IEntityWorkspaceService, SampleEntityWorkspaceService>();
+        builder.Services.AddScoped<IEntityWorkspaceService, ItemWorkspaceService>();
         builder.Services.AddScoped<IEntityWorkspaceService, CustomerWorkspaceService>();
         builder.Services.AddScoped<IEntityWorkspaceService, VendorWorkspaceService>();
         builder.Services.AddScoped<IEntityWorkspaceService, AgentWorkspaceService>();

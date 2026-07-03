@@ -12,13 +12,15 @@ public class EntityWorkspaceRegistryTests
         {
             new StubWorkspaceService(new EntityDescriptor("agents", "Agent", "Agents", "Read-only agent view", "bi-diagram-nav-menu", "Search agents", "None", 30)),
             new StubWorkspaceService(new EntityDescriptor("sample-entities", "Sample Entity", "Sample Entities", "Sample entity view", "bi-list-nested-nav-menu", "Search sample entities", "None", 10)),
+            new StubWorkspaceService(new EntityDescriptor("items", "Item", "Items", "Item view", "bi-box-seam", "Search items", "None", 15)),
             new StubWorkspaceService(new EntityDescriptor("customers", "Customer", "Customers", "Customer view", "bi-people-nav-menu", "Search customers", "None", 20)),
             new StubWorkspaceService(new EntityDescriptor("vendors", "Vendor", "Vendors", "Vendor view", "bi-briefcase-nav-menu", "Search vendors", "None", 25))
         };
 
         var registry = new EntityWorkspaceRegistry(services);
 
-        registry.Descriptors.Select(descriptor => descriptor.Key).ShouldBe(["sample-entities", "customers", "vendors", "agents"]);
+        registry.Descriptors.Select(descriptor => descriptor.Key).ShouldBe(["sample-entities", "items", "customers", "vendors", "agents"]);
+        registry.Get("items").Descriptor.PluralDisplayName.ShouldBe("Items");
         registry.Get("customers").Descriptor.PluralDisplayName.ShouldBe("Customers");
         registry.Get("vendors").Descriptor.PluralDisplayName.ShouldBe("Vendors");
     }

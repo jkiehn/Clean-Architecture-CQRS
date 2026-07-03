@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace CleanArchitectureCQRS.Infrastructure.EF.Config;
 
-internal sealed class WriteConfiguration : IEntityTypeConfiguration<SampleEntity>, IEntityTypeConfiguration<SampleEntityItem>, IEntityTypeConfiguration<Customer>, IEntityTypeConfiguration<Vendor>
+internal sealed class WriteConfiguration : IEntityTypeConfiguration<SampleEntity>, IEntityTypeConfiguration<SampleEntityItem>, IEntityTypeConfiguration<Customer>, IEntityTypeConfiguration<Vendor>, IEntityTypeConfiguration<Item>
 {
     public void Configure(EntityTypeBuilder<SampleEntity> builder)
     {
@@ -60,6 +60,9 @@ internal sealed class WriteConfiguration : IEntityTypeConfiguration<SampleEntity
     public void Configure(EntityTypeBuilder<Vendor> builder)
         => ConfigureAgent(builder, "Vendors");
 
+    public void Configure(EntityTypeBuilder<Item> builder)
+        => ConfigureResource(builder, "Items");
+
     private static void ConfigureAgent<TAgent>(EntityTypeBuilder<TAgent> builder, string tableName) where TAgent : Agent
     {
         var agentNameConverter = new ValueConverter<AgentName, string>(name => name.Value,
@@ -83,6 +86,26 @@ internal sealed class WriteConfiguration : IEntityTypeConfiguration<SampleEntity
             .Property(typeof(AgentEmail), "_email")
             .HasConversion(agentEmailConverter)
             .HasColumnName("Email")
+            .IsRequired();
+
+        builder.ToTable(tableName);
+    }
+
+    private static void ConfigureResource<TResource>(EntityTypeBuilder<TResource> builder, string tableName) where TResource : Resource
+    {
+        var resourceNameConverter = new ValueConverter<ResourceName, string>(name => name.Value,
+            value => new ResourceName(value));
+
+        builder.HasKey(resource => resource.Id);
+
+        builder
+            .Property(resource => resource.Id)
+            .HasConversion(id => id.Value, id => new ResourceId(id));
+
+        builder
+            .Property(typeof(ResourceName), "_name")
+            .HasConversion(resourceNameConverter)
+            .HasColumnName("Name")
             .IsRequired();
 
         builder.ToTable(tableName);

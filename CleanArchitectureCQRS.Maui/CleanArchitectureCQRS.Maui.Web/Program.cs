@@ -18,6 +18,11 @@ builder.Services.AddHttpClient<CustomerService>(client =>
     var apiBaseUrl = builder.Configuration["ApiBaseUrl"] ?? ApiBaseAddressResolver.DefaultApiBaseAddress;
     client.BaseAddress = new Uri(apiBaseUrl);
 });
+builder.Services.AddHttpClient<ItemService>(client =>
+{
+    var apiBaseUrl = builder.Configuration["ApiBaseUrl"] ?? ApiBaseAddressResolver.DefaultApiBaseAddress;
+    client.BaseAddress = new Uri(apiBaseUrl);
+});
 builder.Services.AddHttpClient<VendorService>(client =>
 {
     var apiBaseUrl = builder.Configuration["ApiBaseUrl"] ?? ApiBaseAddressResolver.DefaultApiBaseAddress;
@@ -29,6 +34,7 @@ builder.Services.AddHttpClient<AgentService>(client =>
     client.BaseAddress = new Uri(apiBaseUrl);
 });
 builder.Services.AddScoped<IEntityWorkspaceService, SampleEntityWorkspaceService>();
+builder.Services.AddScoped<IEntityWorkspaceService, ItemWorkspaceService>();
 builder.Services.AddScoped<IEntityWorkspaceService, CustomerWorkspaceService>();
 builder.Services.AddScoped<IEntityWorkspaceService, VendorWorkspaceService>();
 builder.Services.AddScoped<IEntityWorkspaceService, AgentWorkspaceService>();

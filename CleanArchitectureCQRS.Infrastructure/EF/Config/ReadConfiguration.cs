@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace CleanArchitectureCQRS.Infrastructure.EF.Config;
 
-internal sealed class ReadConfiguration : IEntityTypeConfiguration<SampleEntityReadModel>, IEntityTypeConfiguration<SampleEntityItemReadModel>, IEntityTypeConfiguration<CustomerReadModel>, IEntityTypeConfiguration<VendorReadModel>
+internal sealed class ReadConfiguration : IEntityTypeConfiguration<SampleEntityReadModel>, IEntityTypeConfiguration<SampleEntityItemReadModel>, IEntityTypeConfiguration<CustomerReadModel>, IEntityTypeConfiguration<VendorReadModel>, IEntityTypeConfiguration<ItemReadModel>
 {
     public void Configure(EntityTypeBuilder<SampleEntityReadModel> builder)
     {
@@ -31,11 +31,21 @@ internal sealed class ReadConfiguration : IEntityTypeConfiguration<SampleEntityR
     public void Configure(EntityTypeBuilder<VendorReadModel> builder)
         => ConfigureAgent(builder, "Vendors");
 
+    public void Configure(EntityTypeBuilder<ItemReadModel> builder)
+        => ConfigureResource(builder, "Items");
+
     private static void ConfigureAgent<TAgent>(EntityTypeBuilder<TAgent> builder, string tableName) where TAgent : AgentReadModelBase
     {
         builder.ToTable(tableName);
         builder.HasKey(agent => agent.Id);
         builder.Property(agent => agent.Name).IsRequired();
         builder.Property(agent => agent.Email).IsRequired();
+    }
+
+    private static void ConfigureResource<TResource>(EntityTypeBuilder<TResource> builder, string tableName) where TResource : ResourceReadModelBase
+    {
+        builder.ToTable(tableName);
+        builder.HasKey(resource => resource.Id);
+        builder.Property(resource => resource.Name).IsRequired();
     }
 }

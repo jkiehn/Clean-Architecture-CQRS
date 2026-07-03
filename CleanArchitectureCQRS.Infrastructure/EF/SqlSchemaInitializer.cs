@@ -45,6 +45,22 @@ public static class SqlSchemaInitializer
             ALTER TABLE [SampleEntity].[Vendors]
             ADD [Version] int NOT NULL CONSTRAINT [DF_Vendors_Version] DEFAULT (0);
         END
+
+        IF OBJECT_ID(N'[SampleEntity].[Items]', N'U') IS NULL
+        BEGIN
+            CREATE TABLE [SampleEntity].[Items]
+            (
+                [Id] uniqueidentifier NOT NULL,
+                [Name] nvarchar(max) NOT NULL,
+                [Version] int NOT NULL CONSTRAINT [DF_Items_Version] DEFAULT (0),
+                CONSTRAINT [PK_Items] PRIMARY KEY ([Id])
+            );
+        END
+        ELSE IF COL_LENGTH(N'[SampleEntity].[Items]', N'Version') IS NULL
+        BEGIN
+            ALTER TABLE [SampleEntity].[Items]
+            ADD [Version] int NOT NULL CONSTRAINT [DF_Items_Version] DEFAULT (0);
+        END
         """;
 
     public static async Task EnsureAsync(this IServiceProvider serviceProvider)
