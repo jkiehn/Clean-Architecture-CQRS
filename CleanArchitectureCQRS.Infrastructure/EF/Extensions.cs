@@ -19,6 +19,8 @@ internal static class Extensions
         services.AddScoped<ISampleEntityReadService, SampleEntityReadService>();
         services.AddScoped<ICustomerRepository, CustomerRepository>();
         services.AddScoped<ICustomerReadService, CustomerReadService>();
+        services.AddScoped<IVendorRepository, VendorRepository>();
+        services.AddScoped<IVendorReadService, VendorReadService>();
 
         var options = configuration.GetOptions<DataBaseOptions>("DataBaseConnectionString");
         services.AddDbContext<ReadDbContext>(ctx =>

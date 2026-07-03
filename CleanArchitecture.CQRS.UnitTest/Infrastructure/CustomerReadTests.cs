@@ -84,6 +84,7 @@ public class CustomerReadTests
             arrangeContext.Customers.AddRange(
                 new() { Id = Guid.NewGuid(), Name = "Charlie", Email = "charlie@example.com" },
                 new() { Id = Guid.NewGuid(), Name = "Alice", Email = "alice@example.com" });
+            arrangeContext.Vendors.Add(new() { Id = Guid.NewGuid(), Name = "Bravo Supply", Email = "orders@bravo.example" });
             await arrangeContext.SaveChangesAsync();
         }
 
@@ -92,9 +93,11 @@ public class CustomerReadTests
 
         var result = (await handler.HandleAsync(new SearchAgents())).ToList();
 
-        result.Count.ShouldBe(2);
+        result.Count.ShouldBe(3);
         result[0].Name.ShouldBe("Alice");
         result[0].AgentType.ShouldBe("Customer");
-        result[1].Name.ShouldBe("Charlie");
+        result[1].Name.ShouldBe("Bravo Supply");
+        result[1].AgentType.ShouldBe("Vendor");
+        result[2].Name.ShouldBe("Charlie");
     }
 }

@@ -1,12 +1,9 @@
 using CleanArchitectureCQRS.Domain.ValueObjects;
-using CleanArchitectureCQRS.Shared.Abstractions.Domains;
 
 namespace CleanArchitectureCQRS.Domain.Entities;
 
-public abstract class Agent : AggregateRoot<AgentId>
+public abstract class Agent : Continuant<AgentId, AgentName>
 {
-    public AgentId Id { get; protected set; } = default!;
-    private AgentName _name = default!;
     private AgentEmail _email = default!;
 
     protected Agent()
@@ -14,15 +11,14 @@ public abstract class Agent : AggregateRoot<AgentId>
     }
 
     protected Agent(AgentId id, AgentName name, AgentEmail email)
+        : base(id, name)
     {
-        Id = id;
-        _name = name;
         _email = email;
     }
 
     public void UpdateDetails(AgentName name, AgentEmail email)
     {
-        _name = name;
+        UpdateName(name);
         _email = email;
     }
 }

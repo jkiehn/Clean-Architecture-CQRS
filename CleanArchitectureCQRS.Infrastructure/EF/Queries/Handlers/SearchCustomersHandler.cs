@@ -3,34 +3,15 @@ using CleanArchitectureCQRS.Application.Queries;
 using CleanArchitectureCQRS.Infrastructure.EF.Contexts;
 using CleanArchitectureCQRS.Infrastructure.EF.Models;
 using CleanArchitectureCQRS.Shared.Abstractions.Queries;
-using Microsoft.EntityFrameworkCore;
 
 namespace CleanArchitectureCQRS.Infrastructure.EF.Queries.Handlers;
 
-internal sealed class SearchCustomersHandler : IQueryHandler<SearchCustomers, IEnumerable<CustomerDto>>
+internal sealed class SearchCustomersHandler : SearchAgentSubtypeHandlerBase<CustomerReadModel>, IQueryHandler<SearchCustomers, IEnumerable<AgentSubtypeDto>>
 {
-    private readonly DbSet<CustomerReadModel> _customers;
-
     public SearchCustomersHandler(ReadDbContext context)
+        : base(context.Customers, customer => new AgentSubtypeDto(customer.Id, customer.Name, customer.Email))
     {
-        _customers = context.Customers;
     }
 
-    public async Task<IEnumerable<CustomerDto>> HandleAsync(SearchCustomers query)
-    {
-        var dbQuery = _customers.AsQueryable();
-
-        if (!string.IsNullOrWhiteSpace(query.SearchPhrase))
-        {
-            dbQuery = dbQuery.Where(customer =>
-                Microsoft.EntityFrameworkCore.EF.Functions.Like(customer.Name, $"%{query.SearchPhrase}%") ||
-                Microsoft.EntityFrameworkCore.EF.Functions.Like(customer.Email, $"%{query.SearchPhrase}%"));
-        }
-
-        return await dbQuery
-            .OrderBy(customer => customer.Name)
-            .Select(customer => customer.AsDto())
-            .AsNoTracking()
-            .ToListAsync();
-    }
+    public Task<IEnumerable<AgentSubtypeDto>> HandleAsync(SearchCustomers query) => SearchAsync(query.SearchPhrase);
 }

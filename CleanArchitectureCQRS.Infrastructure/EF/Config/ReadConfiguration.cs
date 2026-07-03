@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace CleanArchitectureCQRS.Infrastructure.EF.Config;
 
-internal sealed class ReadConfiguration : IEntityTypeConfiguration<SampleEntityReadModel>, IEntityTypeConfiguration<SampleEntityItemReadModel>, IEntityTypeConfiguration<CustomerReadModel>
+internal sealed class ReadConfiguration : IEntityTypeConfiguration<SampleEntityReadModel>, IEntityTypeConfiguration<SampleEntityItemReadModel>, IEntityTypeConfiguration<CustomerReadModel>, IEntityTypeConfiguration<VendorReadModel>
 {
     public void Configure(EntityTypeBuilder<SampleEntityReadModel> builder)
     {
@@ -26,10 +26,16 @@ internal sealed class ReadConfiguration : IEntityTypeConfiguration<SampleEntityR
     }
 
     public void Configure(EntityTypeBuilder<CustomerReadModel> builder)
+        => ConfigureAgent(builder, "Customers");
+
+    public void Configure(EntityTypeBuilder<VendorReadModel> builder)
+        => ConfigureAgent(builder, "Vendors");
+
+    private static void ConfigureAgent<TAgent>(EntityTypeBuilder<TAgent> builder, string tableName) where TAgent : AgentReadModelBase
     {
-        builder.ToTable("Customers");
-        builder.HasKey(customer => customer.Id);
-        builder.Property(customer => customer.Name).IsRequired();
-        builder.Property(customer => customer.Email).IsRequired();
+        builder.ToTable(tableName);
+        builder.HasKey(agent => agent.Id);
+        builder.Property(agent => agent.Name).IsRequired();
+        builder.Property(agent => agent.Email).IsRequired();
     }
 }

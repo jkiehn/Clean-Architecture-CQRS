@@ -8,6 +8,7 @@ internal sealed class ReadDbContext : DbContext
 {
     public DbSet<SampleEntityReadModel> SampleEntities { get; set; }
     public DbSet<CustomerReadModel> Customers { get; set; }
+    public DbSet<VendorReadModel> Vendors { get; set; }
 
     public ReadDbContext(DbContextOptions<ReadDbContext> options) : base(options)
     {
@@ -20,5 +21,6 @@ internal sealed class ReadDbContext : DbContext
         var configuration = new ReadConfiguration();
         modelBuilder.ApplyConfiguration<SampleEntityReadModel>(configuration);
         modelBuilder.ApplyConfiguration<CustomerReadModel>(configuration);
+        modelBuilder.ApplyConfiguration<VendorReadModel>(configuration);
     }
 }

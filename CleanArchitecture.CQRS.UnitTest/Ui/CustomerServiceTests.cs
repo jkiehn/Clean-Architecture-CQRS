@@ -13,7 +13,7 @@ public class CustomerServiceTests
     {
         var handler = new RecordingHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
         {
-            Content = JsonContent.Create(Array.Empty<CustomerModel>())
+            Content = JsonContent.Create(Array.Empty<AgentSubtypeModel>())
         });
         var service = CreateService(handler);
 
@@ -30,7 +30,7 @@ public class CustomerServiceTests
         var service = CreateService(handler);
         var customerId = Guid.NewGuid();
 
-        await service.UpdateAsync(new UpdateCustomerCommand(customerId, "Alice", "alice@example.com"));
+        await service.UpdateAsync(new UpdateAgentSubtypeCommand(customerId, "Alice", "alice@example.com"));
 
         handler.LastRequest.ShouldNotBeNull();
         handler.LastRequest!.Method.ShouldBe(HttpMethod.Put);

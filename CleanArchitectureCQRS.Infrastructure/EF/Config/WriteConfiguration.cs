@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace CleanArchitectureCQRS.Infrastructure.EF.Config;
 
-internal sealed class WriteConfiguration : IEntityTypeConfiguration<SampleEntity>, IEntityTypeConfiguration<SampleEntityItem>, IEntityTypeConfiguration<Customer>
+internal sealed class WriteConfiguration : IEntityTypeConfiguration<SampleEntity>, IEntityTypeConfiguration<SampleEntityItem>, IEntityTypeConfiguration<Customer>, IEntityTypeConfiguration<Vendor>
 {
     public void Configure(EntityTypeBuilder<SampleEntity> builder)
     {
@@ -55,6 +55,12 @@ internal sealed class WriteConfiguration : IEntityTypeConfiguration<SampleEntity
     }
 
     public void Configure(EntityTypeBuilder<Customer> builder)
+        => ConfigureAgent(builder, "Customers");
+
+    public void Configure(EntityTypeBuilder<Vendor> builder)
+        => ConfigureAgent(builder, "Vendors");
+
+    private static void ConfigureAgent<TAgent>(EntityTypeBuilder<TAgent> builder, string tableName) where TAgent : Agent
     {
         var agentNameConverter = new ValueConverter<AgentName, string>(name => name.Value,
             value => new AgentName(value));
@@ -79,6 +85,6 @@ internal sealed class WriteConfiguration : IEntityTypeConfiguration<SampleEntity
             .HasColumnName("Email")
             .IsRequired();
 
-        builder.ToTable("Customers");
+        builder.ToTable(tableName);
     }
 }

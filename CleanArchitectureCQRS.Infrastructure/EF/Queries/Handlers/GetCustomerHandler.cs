@@ -3,23 +3,15 @@ using CleanArchitectureCQRS.Application.Queries;
 using CleanArchitectureCQRS.Infrastructure.EF.Contexts;
 using CleanArchitectureCQRS.Infrastructure.EF.Models;
 using CleanArchitectureCQRS.Shared.Abstractions.Queries;
-using Microsoft.EntityFrameworkCore;
 
 namespace CleanArchitectureCQRS.Infrastructure.EF.Queries.Handlers;
 
-internal sealed class GetCustomerHandler : IQueryHandler<GetCustomer, CustomerDto>
+internal sealed class GetCustomerHandler : GetAgentSubtypeHandlerBase<CustomerReadModel>, IQueryHandler<GetCustomer, AgentSubtypeDto>
 {
-    private readonly DbSet<CustomerReadModel> _customers;
-
     public GetCustomerHandler(ReadDbContext context)
+        : base(context.Customers, customer => new AgentSubtypeDto(customer.Id, customer.Name, customer.Email))
     {
-        _customers = context.Customers;
     }
 
-    public Task<CustomerDto?> HandleAsync(GetCustomer query)
-        => _customers
-            .Where(customer => customer.Id == query.Id)
-            .Select(customer => customer.AsDto())
-            .AsNoTracking()
-            .SingleOrDefaultAsync();
+    public Task<AgentSubtypeDto?> HandleAsync(GetCustomer query) => GetAsync(query.Id);
 }

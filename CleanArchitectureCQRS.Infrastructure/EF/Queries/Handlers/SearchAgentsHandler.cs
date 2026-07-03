@@ -10,27 +10,37 @@ namespace CleanArchitectureCQRS.Infrastructure.EF.Queries.Handlers;
 internal sealed class SearchAgentsHandler : IQueryHandler<SearchAgents, IEnumerable<AgentDto>>
 {
     private readonly DbSet<CustomerReadModel> _customers;
+    private readonly DbSet<VendorReadModel> _vendors;
 
     public SearchAgentsHandler(ReadDbContext context)
     {
         _customers = context.Customers;
+        _vendors = context.Vendors;
     }
 
     public async Task<IEnumerable<AgentDto>> HandleAsync(SearchAgents query)
     {
-        var dbQuery = _customers.AsQueryable();
+        var customers = await BuildQuery(_customers, "Customer", query.SearchPhrase).ToListAsync();
+        var vendors = await BuildQuery(_vendors, "Vendor", query.SearchPhrase).ToListAsync();
 
-        if (!string.IsNullOrWhiteSpace(query.SearchPhrase))
+        return customers
+            .Concat(vendors)
+            .OrderBy(agent => agent.Name)
+            .ToList();
+    }
+
+    private static IQueryable<AgentDto> BuildQuery<TReadModel>(DbSet<TReadModel> agents, string agentType, string? searchPhrase)
+        where TReadModel : AgentReadModelBase
+    {
+        var query = agents.AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(searchPhrase))
         {
-            dbQuery = dbQuery.Where(customer =>
-                Microsoft.EntityFrameworkCore.EF.Functions.Like(customer.Name, $"%{query.SearchPhrase}%") ||
-                Microsoft.EntityFrameworkCore.EF.Functions.Like(customer.Email, $"%{query.SearchPhrase}%"));
+            query = query.Where(agent =>
+                Microsoft.EntityFrameworkCore.EF.Functions.Like(agent.Name, $"%{searchPhrase}%") ||
+                Microsoft.EntityFrameworkCore.EF.Functions.Like(agent.Email, $"%{searchPhrase}%"));
         }
 
-        return await dbQuery
-            .OrderBy(customer => customer.Name)
-            .Select(customer => customer.AsAgentDto())
-            .AsNoTracking()
-            .ToListAsync();
+        return query.Select(agent => new AgentDto(agent.Id, agent.Name, agent.Email, agentType));
     }
 }

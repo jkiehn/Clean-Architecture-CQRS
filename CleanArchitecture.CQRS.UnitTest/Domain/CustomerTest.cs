@@ -19,7 +19,15 @@ public class CustomerTest
 
     private static T GetFieldValue<T>(object instance, string fieldName)
     {
-        var field = instance.GetType().BaseType?.GetField(fieldName, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        var currentType = instance.GetType();
+        System.Reflection.FieldInfo? field = null;
+
+        while (currentType is not null && field is null)
+        {
+            field = currentType.GetField(fieldName, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            currentType = currentType.BaseType;
+        }
+
         field.ShouldNotBeNull();
         return (T)field.GetValue(instance)!;
     }
