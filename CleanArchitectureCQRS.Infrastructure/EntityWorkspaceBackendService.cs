@@ -677,7 +677,7 @@ internal sealed class EntityWorkspaceBackendService : IEntityWorkspaceBackendSer
     {
         var value = GetRequiredValue(values, key);
 
-        if (DateTimeOffset.TryParse(value, out var result))
+        if (TryParseDateTimeExpression(value, out var result))
         {
             return result;
         }
@@ -692,7 +692,7 @@ internal sealed class EntityWorkspaceBackendService : IEntityWorkspaceBackendSer
             return null;
         }
 
-        if (DateTimeOffset.TryParse(value.Trim(), out var result))
+        if (TryParseDateTimeExpression(value.Trim(), out var result))
         {
             return result;
         }
@@ -724,6 +724,64 @@ internal sealed class EntityWorkspaceBackendService : IEntityWorkspaceBackendSer
 
     private static string FormatAmount(decimal? amount)
         => amount?.ToString("0.##", CultureInfo.InvariantCulture) ?? "None";
+
+    private static bool TryParseDateTimeExpression(string value, out DateTimeOffset result)
+    {
+        var trimmed = value.Trim();
+        var now = DateTimeOffset.Now;
+
+        if (string.Equals(trimmed, "N", StringComparison.OrdinalIgnoreCase))
+        {
+            result = now;
+            return true;
+        }
+
+        if (string.Equals(trimmed, "T", StringComparison.OrdinalIgnoreCase))
+        {
+            result = new DateTimeOffset(now.Year, now.Month, now.Day, now.Hour, now.Minute, now.Second, now.Offset);
+            return true;
+        }
+
+        if (TryParseRelativeDateTimeExpression(trimmed, now, out result))
+        {
+            return true;
+        }
+
+        return DateTimeOffset.TryParse(trimmed, CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces, out result) ||
+               DateTimeOffset.TryParse(trimmed, CultureInfo.CurrentCulture, DateTimeStyles.AllowWhiteSpaces, out result);
+    }
+
+    private static bool TryParseRelativeDateTimeExpression(string value, DateTimeOffset now, out DateTimeOffset result)
+    {
+        result = default;
+
+        if (string.IsNullOrWhiteSpace(value) || (value[0] != '+' && value[0] != '-'))
+        {
+            return false;
+        }
+
+        var sign = value[0] == '+' ? 1 : -1;
+        var numberPart = value.Substring(1, value.Length - 2);
+        var unit = char.ToLowerInvariant(value[^1]);
+
+        if (!double.TryParse(numberPart, NumberStyles.Float, CultureInfo.InvariantCulture, out var amount) &&
+            !double.TryParse(numberPart, NumberStyles.Float, CultureInfo.CurrentCulture, out amount))
+        {
+            return false;
+        }
+
+        var signedAmount = amount * sign;
+        result = unit switch
+        {
+            'm' => now.AddMinutes(signedAmount),
+            'h' => now.AddHours(signedAmount),
+            'd' => now.AddDays(signedAmount),
+            'w' => now.AddDays(signedAmount * 7),
+            _ => default
+        };
+
+        return unit is 'm' or 'h' or 'd' or 'w';
+    }
 
     private static TEntity CreateEntityInstance<TEntity>(params object[] arguments)
     {

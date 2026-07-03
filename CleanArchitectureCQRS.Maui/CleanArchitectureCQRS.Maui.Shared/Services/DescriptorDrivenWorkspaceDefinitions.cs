@@ -68,11 +68,11 @@ public static class DescriptorDrivenWorkspaceDefinitions
         "btn btn-primary action-btn",
         new[]
         {
-            new EntityFieldDefinition("when", "When", Required: true, Placeholder: "2026-07-03T14:30:00+00:00"),
-            new EntityFieldDefinition("endWhen", "End When", Placeholder: "2026-07-03T15:00:00+00:00"),
+            new EntityFieldDefinition("when", "When", EntityFieldKind.DateTime, Required: true, Placeholder: "N, T, +1d, or 2026-07-03T14:30:00+00:00"),
+            new EntityFieldDefinition("endWhen", "End When", EntityFieldKind.DateTime, Placeholder: "N, T, +1d, or 2026-07-03T15:00:00+00:00"),
             new EntityFieldDefinition("amount", "Amount", EntityFieldKind.Number, Placeholder: "100.00"),
-            new EntityFieldDefinition("employee", "Employee", Required: true, Placeholder: "Employee email, name, id, or SSN"),
-            new EntityFieldDefinition("customer", "Customer", Required: true, Placeholder: "Customer email, name, or id")
+            new EntityFieldDefinition("employee", "Employee", Required: true, Placeholder: "Employee email, name, id, or SSN", Lookup: new EntityLookupDefinition("employees", ValueSource: EntityLookupValueSource.Subtitle)),
+            new EntityFieldDefinition("customer", "Customer", Required: true, Placeholder: "Customer email, name, or id", Lookup: new EntityLookupDefinition("customers", ValueSource: EntityLookupValueSource.Subtitle))
         });
 
     private static readonly EntityActionDefinition EditSaleAction = new(
@@ -81,11 +81,11 @@ public static class DescriptorDrivenWorkspaceDefinitions
         "btn btn-dark action-btn",
         new[]
         {
-            new EntityFieldDefinition("when", "When", Required: true, Placeholder: "2026-07-03T14:30:00+00:00"),
-            new EntityFieldDefinition("endWhen", "End When", Placeholder: "2026-07-03T15:00:00+00:00"),
+            new EntityFieldDefinition("when", "When", EntityFieldKind.DateTime, Required: true, Placeholder: "N, T, +1d, or 2026-07-03T14:30:00+00:00"),
+            new EntityFieldDefinition("endWhen", "End When", EntityFieldKind.DateTime, Placeholder: "N, T, +1d, or 2026-07-03T15:00:00+00:00"),
             new EntityFieldDefinition("amount", "Amount", EntityFieldKind.Number, Placeholder: "100.00"),
-            new EntityFieldDefinition("employee", "Employee", Required: true, Placeholder: "Employee email, name, id, or SSN"),
-            new EntityFieldDefinition("customer", "Customer", Required: true, Placeholder: "Customer email, name, or id")
+            new EntityFieldDefinition("employee", "Employee", Required: true, Placeholder: "Employee email, name, id, or SSN", Lookup: new EntityLookupDefinition("employees", ValueSource: EntityLookupValueSource.Subtitle)),
+            new EntityFieldDefinition("customer", "Customer", Required: true, Placeholder: "Customer email, name, or id", Lookup: new EntityLookupDefinition("customers", ValueSource: EntityLookupValueSource.Subtitle))
         });
 
     public static IReadOnlyList<EntityDescriptor> All { get; } = new[]

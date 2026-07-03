@@ -219,6 +219,8 @@ else
     private readonly Dictionary<string, object?> _createValues = [];
     private readonly Dictionary<string, object?> _editValues = [];
     private readonly Dictionary<string, Dictionary<string, object?>> _collectionValues = [];
+    private readonly Dictionary<string, List<EntityListItem>> _lookupResults = [];
+    private readonly Dictionary<string, bool> _lookupBusy = [];
     private EntityListItem? _selectedItem;
     private EntityDetail? _selectedDetail;
     private string _searchPhrase = string.Empty;
@@ -242,6 +244,8 @@ else
         _createValues.Clear();
         _editValues.Clear();
         _collectionValues.Clear();
+        _lookupResults.Clear();
+        _lookupBusy.Clear();
         _errorMessage = null;
         _statusMessage = null;
 
@@ -289,6 +293,8 @@ else
                 _selectedDetail = null;
                 _editValues.Clear();
                 _collectionValues.Clear();
+                _lookupResults.Clear();
+                _lookupBusy.Clear();
             }
         }
     }
@@ -308,6 +314,8 @@ else
 
         _editValues.Clear();
         _collectionValues.Clear();
+        _lookupResults.Clear();
+        _lookupBusy.Clear();
 
         if (_selectedDetail is null || _descriptor is null)
         {
@@ -440,6 +448,7 @@ else
     private RenderFragment RenderField(EntityFieldDefinition field, Dictionary<string, object?> values) => builder =>
     {
         var seq = 0;
+        var lookupKey = GetLookupStateKey(values, field);
 
         builder.OpenElement(seq++, "div");
         builder.OpenElement(seq++, "label");
@@ -475,18 +484,165 @@ else
                 builder.CloseElement();
                 break;
 
-            default:
+            case EntityFieldKind.DateTime:
                 builder.OpenElement(seq++, "input");
                 builder.AddAttribute(seq++, "class", "form-control");
                 builder.AddAttribute(seq++, "value", GetFieldValue(values, field));
                 builder.AddAttribute(seq++, "placeholder", field.Placeholder);
                 builder.AddAttribute(seq++, "oninput", EventCallback.Factory.Create<ChangeEventArgs>(this, args => values[field.Key] = args.Value?.ToString()));
                 builder.CloseElement();
+
+                builder.OpenElement(seq++, "div");
+                builder.AddAttribute(seq++, "class", "d-flex flex-wrap gap-2 mt-2");
+
+                RenderDateShortcutButton(builder, ref seq, values, field, "Now", "N");
+                RenderDateShortcutButton(builder, ref seq, values, field, "Today", "T");
+                RenderDateShortcutButton(builder, ref seq, values, field, "Tomorrow", "+1d");
+                RenderDateShortcutButton(builder, ref seq, values, field, "+1h", "+1h");
+
+                builder.CloseElement();
+
+                builder.OpenElement(seq++, "div");
+                builder.AddAttribute(seq++, "class", "form-text");
+                builder.AddContent(seq++, "Shortcuts: N = now, T = today at the current time, +1d = tomorrow, +2h / -30m = relative offsets.");
+                builder.CloseElement();
+                break;
+
+            default:
+                if (field.Lookup is null)
+                {
+                    builder.OpenElement(seq++, "input");
+                    builder.AddAttribute(seq++, "class", "form-control");
+                    builder.AddAttribute(seq++, "value", GetFieldValue(values, field));
+                    builder.AddAttribute(seq++, "placeholder", field.Placeholder);
+                    builder.AddAttribute(seq++, "oninput", EventCallback.Factory.Create<ChangeEventArgs>(this, args => values[field.Key] = args.Value?.ToString()));
+                    builder.CloseElement();
+                    break;
+                }
+
+                builder.OpenElement(seq++, "div");
+                builder.AddAttribute(seq++, "class", "d-flex gap-2");
+
+                builder.OpenElement(seq++, "input");
+                builder.AddAttribute(seq++, "class", "form-control");
+                builder.AddAttribute(seq++, "value", GetFieldValue(values, field));
+                builder.AddAttribute(seq++, "placeholder", field.Placeholder);
+                builder.AddAttribute(seq++, "oninput", EventCallback.Factory.Create<ChangeEventArgs>(this, args =>
+                {
+                    values[field.Key] = args.Value?.ToString();
+                    _lookupResults.Remove(lookupKey);
+                }));
+                builder.CloseElement();
+
+                builder.OpenElement(seq++, "button");
+                builder.AddAttribute(seq++, "type", "button");
+                builder.AddAttribute(seq++, "class", "btn btn-outline-secondary");
+                builder.AddAttribute(seq++, "disabled", _isBusy || (_lookupBusy.TryGetValue(lookupKey, out var lookupBusy) && lookupBusy));
+                builder.AddAttribute(seq++, "onclick", EventCallback.Factory.Create(this, () => RunLookupAsync(values, field)));
+                builder.AddContent(seq++, field.Lookup.ButtonLabel);
+                builder.CloseElement();
+
+                builder.CloseElement();
+
+                if (_lookupResults.TryGetValue(lookupKey, out var results))
+                {
+                    if (results.Count == 0)
+                    {
+                        builder.OpenElement(seq++, "div");
+                        builder.AddAttribute(seq++, "class", "empty-state");
+                        builder.AddContent(seq++, field.Lookup.EmptyStateMessage);
+                        builder.CloseElement();
+                    }
+                    else
+                    {
+                        builder.OpenElement(seq++, "div");
+                        builder.AddAttribute(seq++, "class", "entity-list mt-2");
+
+                        foreach (var result in results)
+                        {
+                            builder.OpenElement(seq++, "button");
+                            builder.AddAttribute(seq++, "type", "button");
+                            builder.AddAttribute(seq++, "class", "entity-card");
+                            builder.AddAttribute(seq++, "onclick", EventCallback.Factory.Create(this, () => SelectLookupResult(values, field, result)));
+
+                            builder.OpenElement(seq++, "span");
+                            builder.AddAttribute(seq++, "class", "entity-name");
+                            builder.AddContent(seq++, result.Title);
+                            builder.CloseElement();
+
+                            if (!string.IsNullOrWhiteSpace(result.Subtitle))
+                            {
+                                builder.OpenElement(seq++, "span");
+                                builder.AddAttribute(seq++, "class", "entity-subtitle");
+                                builder.AddContent(seq++, result.Subtitle);
+                                builder.CloseElement();
+                            }
+
+                            foreach (var meta in result.Meta)
+                            {
+                                builder.OpenElement(seq++, "span");
+                                builder.AddAttribute(seq++, "class", "entity-count");
+                                builder.AddContent(seq++, $"{meta.Label}: {meta.Value}");
+                                builder.CloseElement();
+                            }
+
+                            builder.CloseElement();
+                        }
+
+                        builder.CloseElement();
+                    }
+                }
                 break;
         }
 
         builder.CloseElement();
     };
+
+    private async Task RunLookupAsync(Dictionary<string, object?> values, EntityFieldDefinition field)
+    {
+        if (field.Lookup is null)
+        {
+            return;
+        }
+
+        var searchPhrase = GetFieldValue(values, field);
+        var lookupKey = GetLookupStateKey(values, field);
+        _lookupBusy[lookupKey] = true;
+        _errorMessage = null;
+
+        try
+        {
+            var service = Registry.Get(field.Lookup.EntityKey);
+            var results = await service.SearchAsync(searchPhrase);
+            _lookupResults[lookupKey] = results.Take(8).ToList();
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+        }
+        finally
+        {
+            _lookupBusy[lookupKey] = false;
+            StateHasChanged();
+        }
+    }
+
+    private void SelectLookupResult(Dictionary<string, object?> values, EntityFieldDefinition field, EntityListItem item)
+    {
+        if (field.Lookup is null)
+        {
+            return;
+        }
+
+        values[field.Key] = field.Lookup.ValueSource switch
+        {
+            EntityLookupValueSource.Title => item.Title,
+            EntityLookupValueSource.Subtitle => string.IsNullOrWhiteSpace(item.Subtitle) ? item.Title : item.Subtitle,
+            _ => item.Id.ToString()
+        };
+
+        _lookupResults.Remove(GetLookupStateKey(values, field));
+    }
 
     private static string GetFieldValue(Dictionary<string, object?> values, EntityFieldDefinition field)
     {
@@ -496,6 +652,19 @@ else
         }
 
         return field.DefaultValue?.ToString() ?? string.Empty;
+    }
+
+    private static string GetLookupStateKey(Dictionary<string, object?> values, EntityFieldDefinition field)
+        => $"{values.GetHashCode()}::{field.Key}";
+
+    private void RenderDateShortcutButton(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder builder, ref int seq, Dictionary<string, object?> values, EntityFieldDefinition field, string label, string value)
+    {
+        builder.OpenElement(seq++, "button");
+        builder.AddAttribute(seq++, "type", "button");
+        builder.AddAttribute(seq++, "class", "btn btn-sm btn-outline-secondary");
+        builder.AddAttribute(seq++, "onclick", EventCallback.Factory.Create(this, () => values[field.Key] = value));
+        builder.AddContent(seq++, label);
+        builder.CloseElement();
     }
 
     private bool ValidateAction(EntityActionDefinition action, Dictionary<string, object?> values)

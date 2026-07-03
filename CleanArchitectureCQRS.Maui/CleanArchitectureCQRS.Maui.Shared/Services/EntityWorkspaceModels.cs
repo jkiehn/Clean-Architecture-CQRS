@@ -4,10 +4,24 @@ public enum EntityFieldKind
 {
     Text,
     Number,
-    Select
+    Select,
+    DateTime
+}
+
+public enum EntityLookupValueSource
+{
+    Id,
+    Title,
+    Subtitle
 }
 
 public record EntityFieldOption(string Value, string Label);
+
+public record EntityLookupDefinition(
+    string EntityKey,
+    string ButtonLabel = "Lookup",
+    string EmptyStateMessage = "No matches found.",
+    EntityLookupValueSource ValueSource = EntityLookupValueSource.Id);
 
 public record EntityFieldDefinition(
     string Key,
@@ -16,7 +30,8 @@ public record EntityFieldDefinition(
     bool Required = false,
     string? Placeholder = null,
     object? DefaultValue = null,
-    IReadOnlyList<EntityFieldOption>? Options = null);
+    IReadOnlyList<EntityFieldOption>? Options = null,
+    EntityLookupDefinition? Lookup = null);
 
 public record EntityActionDefinition(
     string Key,

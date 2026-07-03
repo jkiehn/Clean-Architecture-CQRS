@@ -300,4 +300,50 @@ public class EntityWorkspaceBackendServiceTests
         detail.EditValues["employee"].ShouldBe("emma@example.com");
         detail.EditValues["customer"].ShouldBe("buyer@contoso.example");
     }
+
+    [Fact]
+    public async Task CreateAsync_Creates_Sale_From_DateTime_Shortcuts()
+    {
+        await using var connection = new SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+
+        var writeOptions = new DbContextOptionsBuilder<WriteDbContext>()
+            .UseSqlite(connection)
+            .Options;
+        var readOptions = new DbContextOptionsBuilder<ReadDbContext>()
+            .UseSqlite(connection)
+            .Options;
+
+        var employeeId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        var before = DateTimeOffset.Now;
+
+        await using (var arrangeContext = new WriteDbContext(writeOptions))
+        {
+            await arrangeContext.Database.EnsureCreatedAsync();
+            arrangeContext.Employees.Add(new Employee(employeeId, "Emma", "emma@example.com", "444-44-4444"));
+            arrangeContext.Customers.Add(new Customer(customerId, "Contoso", "buyer@contoso.example"));
+            await arrangeContext.SaveChangesAsync();
+        }
+
+        await using var readContext = new ReadDbContext(readOptions);
+        await using var writeContext = new WriteDbContext(writeOptions);
+        IEntityWorkspaceBackendService service = new EntityWorkspaceBackendService(readContext, writeContext);
+
+        await service.CreateAsync("sales", new Dictionary<string, string?>
+        {
+            ["when"] = "+1d",
+            ["endWhen"] = "+1d",
+            ["amount"] = "125.50",
+            ["employee"] = "emma@example.com",
+            ["customer"] = "buyer@contoso.example"
+        });
+
+        var after = DateTimeOffset.Now;
+
+        await using var assertReadContext = new ReadDbContext(readOptions);
+        var storedSale = await assertReadContext.Sales.SingleAsync();
+        storedSale.When.ShouldBeGreaterThanOrEqualTo(before.AddDays(1));
+        storedSale.When.ShouldBeLessThanOrEqualTo(after.AddDays(1));
+    }
 }
