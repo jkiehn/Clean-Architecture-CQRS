@@ -120,4 +120,28 @@ internal sealed class WriteConfiguration : IEntityTypeConfiguration<SampleEntity
 
         builder.ToTable(tableName);
     }
+
+    private static void ConfigureEvent<TEvent>(EntityTypeBuilder<TEvent> builder, string tableName) where TEvent : Domain.Entities.Event
+    {
+        builder.HasKey(@event => @event.Id);
+
+        builder
+            .Property(@event => @event.Id)
+            .HasConversion(id => id.Value, id => new EventId(id));
+
+        builder
+            .Property<DateTimeOffset>("_when")
+            .HasColumnName("When")
+            .IsRequired();
+
+        builder
+            .Property<DateTimeOffset?>("_endWhen")
+            .HasColumnName("EndWhen");
+
+        builder
+            .Property<decimal?>("_amount")
+            .HasColumnName("Amount");
+
+        builder.ToTable(tableName);
+    }
 }

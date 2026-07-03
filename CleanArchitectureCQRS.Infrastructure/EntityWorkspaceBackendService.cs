@@ -516,6 +516,12 @@ internal sealed class EntityWorkspaceBackendService : IEntityWorkspaceBackendSer
                 convertedArgument = new ResourceId(guid);
                 return true;
             }
+
+            if (targetType == typeof(EventId))
+            {
+                convertedArgument = new EventId(guid);
+                return true;
+            }
         }
 
         if (argument is string value)

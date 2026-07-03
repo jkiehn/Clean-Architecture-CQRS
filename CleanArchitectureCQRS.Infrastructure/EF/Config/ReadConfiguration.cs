@@ -54,4 +54,13 @@ internal sealed class ReadConfiguration : IEntityTypeConfiguration<SampleEntityR
         builder.HasKey(resource => resource.Id);
         builder.Property(resource => resource.Name).IsRequired();
     }
+
+    private static void ConfigureEvent<TEvent>(EntityTypeBuilder<TEvent> builder, string tableName) where TEvent : EventReadModelBase
+    {
+        builder.ToTable(tableName);
+        builder.HasKey(@event => @event.Id);
+        builder.Property(@event => @event.When).IsRequired();
+        builder.Property(@event => @event.EndWhen);
+        builder.Property(@event => @event.Amount);
+    }
 }
