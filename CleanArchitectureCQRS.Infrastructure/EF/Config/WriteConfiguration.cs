@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace CleanArchitectureCQRS.Infrastructure.EF.Config;
 
-internal sealed class WriteConfiguration : IEntityTypeConfiguration<SampleEntity>, IEntityTypeConfiguration<SampleEntityItem>, IEntityTypeConfiguration<Customer>, IEntityTypeConfiguration<Vendor>, IEntityTypeConfiguration<Employee>, IEntityTypeConfiguration<Item>
+internal sealed class WriteConfiguration : IEntityTypeConfiguration<SampleEntity>, IEntityTypeConfiguration<SampleEntityItem>, IEntityTypeConfiguration<Customer>, IEntityTypeConfiguration<Vendor>, IEntityTypeConfiguration<Employee>, IEntityTypeConfiguration<Item>, IEntityTypeConfiguration<Sale>
 {
     public void Configure(EntityTypeBuilder<SampleEntity> builder)
     {
@@ -72,6 +72,35 @@ internal sealed class WriteConfiguration : IEntityTypeConfiguration<SampleEntity
 
     public void Configure(EntityTypeBuilder<Item> builder)
         => ConfigureResource(builder, "Items");
+
+    public void Configure(EntityTypeBuilder<Sale> builder)
+    {
+        ConfigureEvent(builder, "Sales");
+
+        builder
+            .Property<ParticipationId>("_internalParticipationId")
+            .HasConversion(id => id.Value, id => new ParticipationId(id))
+            .HasColumnName("InternalParticipationId")
+            .IsRequired();
+
+        builder
+            .Property<AgentId>("_employeeId")
+            .HasConversion(id => id.Value, id => new AgentId(id))
+            .HasColumnName("EmployeeId")
+            .IsRequired();
+
+        builder
+            .Property<ParticipationId>("_externalParticipationId")
+            .HasConversion(id => id.Value, id => new ParticipationId(id))
+            .HasColumnName("ExternalParticipationId")
+            .IsRequired();
+
+        builder
+            .Property<AgentId>("_customerId")
+            .HasConversion(id => id.Value, id => new AgentId(id))
+            .HasColumnName("CustomerId")
+            .IsRequired();
+    }
 
     private static void ConfigureAgent<TAgent>(EntityTypeBuilder<TAgent> builder, string tableName) where TAgent : Agent
     {
@@ -141,6 +170,29 @@ internal sealed class WriteConfiguration : IEntityTypeConfiguration<SampleEntity
         builder
             .Property<decimal?>("_amount")
             .HasColumnName("Amount");
+
+        builder.ToTable(tableName);
+    }
+
+    private static void ConfigureParticipation<TParticipation>(EntityTypeBuilder<TParticipation> builder, string tableName) where TParticipation : Participation
+    {
+        builder.HasKey(participation => participation.Id);
+
+        builder
+            .Property(participation => participation.Id)
+            .HasConversion(id => id.Value, id => new ParticipationId(id));
+
+        builder
+            .Property<AgentId>("_agentId")
+            .HasConversion(id => id.Value, id => new AgentId(id))
+            .HasColumnName("AgentId")
+            .IsRequired();
+
+        builder
+            .Property<EventId>("_eventId")
+            .HasConversion(id => id.Value, id => new EventId(id))
+            .HasColumnName("EventId")
+            .IsRequired();
 
         builder.ToTable(tableName);
     }

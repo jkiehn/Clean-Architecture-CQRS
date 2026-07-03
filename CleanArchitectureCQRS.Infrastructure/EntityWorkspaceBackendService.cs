@@ -5,6 +5,7 @@ using CleanArchitectureCQRS.Domain.ValueObjects;
 using CleanArchitectureCQRS.Infrastructure.EF.Contexts;
 using CleanArchitectureCQRS.Infrastructure.EF.Models;
 using Microsoft.EntityFrameworkCore;
+using System.Globalization;
 
 namespace CleanArchitectureCQRS.Infrastructure;
 
@@ -24,6 +25,7 @@ internal sealed class EntityWorkspaceBackendService : IEntityWorkspaceBackendSer
             CreateAgentSubtypeDescriptor<Vendor, VendorReadModel>("vendors", "Vendor"),
             CreateEmployeeDescriptor(),
             CreateResourceSubtypeDescriptor<Item, ItemReadModel>("items", "Item"),
+            CreateSaleDescriptor(),
             CreateAgentAggregationDescriptor()
         }.ToDictionary(descriptor => descriptor.Key, StringComparer.OrdinalIgnoreCase);
     }
@@ -95,6 +97,15 @@ internal sealed class EntityWorkspaceBackendService : IEntityWorkspaceBackendSer
             null,
             null,
             null);
+
+    private static EntityWorkspaceBackendDescriptor CreateSaleDescriptor()
+        => new(
+            "sales",
+            (service, searchPhrase) => service.SearchSalesAsync(searchPhrase),
+            (service, id) => service.GetSaleAsync(id),
+            (service, values) => service.CreateSaleAsync(values),
+            (service, id, values) => service.UpdateSaleAsync(id, values),
+            (service, id) => service.DeleteSaleAsync(id));
 
     private async Task<IReadOnlyList<EntityWorkspaceListItemDto>> SearchAgentSubtypeAsync<TReadModel>(string? searchPhrase, string entityType)
         where TReadModel : AgentReadModelBase
@@ -427,6 +438,154 @@ internal sealed class EntityWorkspaceBackendService : IEntityWorkspaceBackendSer
         return new EntityWorkspaceOperationResultDto($"{entityType} deleted.");
     }
 
+    private async Task<IReadOnlyList<EntityWorkspaceListItemDto>> SearchSalesAsync(string? searchPhrase)
+    {
+        var search = searchPhrase?.Trim();
+        var hasAmountFilter = decimal.TryParse(search, out var parsedAmount);
+
+        var query =
+            from sale in _readDbContext.Sales
+            join employee in _readDbContext.Employees on sale.EmployeeId equals employee.Id
+            join customer in _readDbContext.Customers on sale.CustomerId equals customer.Id
+            select new
+            {
+                sale.Id,
+                sale.When,
+                sale.Amount,
+                EmployeeName = employee.Name,
+                EmployeeEmail = employee.Email,
+                CustomerName = customer.Name,
+                CustomerEmail = customer.Email
+            };
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            query = query.Where(item =>
+                Microsoft.EntityFrameworkCore.EF.Functions.Like(item.EmployeeName, $"%{search}%") ||
+                Microsoft.EntityFrameworkCore.EF.Functions.Like(item.EmployeeEmail, $"%{search}%") ||
+                Microsoft.EntityFrameworkCore.EF.Functions.Like(item.CustomerName, $"%{search}%") ||
+                Microsoft.EntityFrameworkCore.EF.Functions.Like(item.CustomerEmail, $"%{search}%") ||
+                (hasAmountFilter && item.Amount == parsedAmount));
+        }
+
+        return await query
+            .OrderByDescending(item => item.When)
+            .Select(item => new EntityWorkspaceListItemDto(
+                item.Id,
+                $"Sale {FormatDateTime(item.When)}",
+                $"{item.EmployeeName} -> {item.CustomerName}",
+                new[]
+                {
+                    new EntityWorkspacePropertyDto("Type", "Sale"),
+                    new EntityWorkspacePropertyDto("Amount", FormatAmount(item.Amount))
+                }))
+            .AsNoTracking()
+            .ToListAsync();
+    }
+
+    private async Task<EntityWorkspaceDetailDto?> GetSaleAsync(Guid id)
+    {
+        var sale =
+            await (
+                from entity in _readDbContext.Sales
+                join employee in _readDbContext.Employees on entity.EmployeeId equals employee.Id
+                join customer in _readDbContext.Customers on entity.CustomerId equals customer.Id
+                where entity.Id == id
+                select new
+                {
+                    entity.Id,
+                    entity.When,
+                    entity.EndWhen,
+                    entity.Amount,
+                    entity.InternalParticipationId,
+                    entity.ExternalParticipationId,
+                    EmployeeName = employee.Name,
+                    EmployeeEmail = employee.Email,
+                    CustomerName = customer.Name,
+                    CustomerEmail = customer.Email
+                })
+            .AsNoTracking()
+            .SingleOrDefaultAsync();
+
+        return sale is null
+            ? null
+            : new EntityWorkspaceDetailDto(
+                sale.Id,
+                $"Sale {FormatDateTime(sale.When)}",
+                $"{sale.EmployeeName} -> {sale.CustomerName}",
+                new[]
+                {
+                    new EntityWorkspacePropertyDto("When", FormatDateTime(sale.When)),
+                    new EntityWorkspacePropertyDto("End When", FormatOptionalDateTime(sale.EndWhen)),
+                    new EntityWorkspacePropertyDto("Amount", FormatAmount(sale.Amount)),
+                    new EntityWorkspacePropertyDto("Employee", $"{sale.EmployeeName} ({sale.EmployeeEmail})"),
+                    new EntityWorkspacePropertyDto("Customer", $"{sale.CustomerName} ({sale.CustomerEmail})"),
+                    new EntityWorkspacePropertyDto("Internal Participation", sale.InternalParticipationId.ToString()),
+                    new EntityWorkspacePropertyDto("External Participation", sale.ExternalParticipationId.ToString()),
+                    new EntityWorkspacePropertyDto("Identifier", sale.Id.ToString()),
+                    new EntityWorkspacePropertyDto("Type", "Sale")
+                },
+                new Dictionary<string, object?>
+                {
+                    ["when"] = sale.When.ToString("O"),
+                    ["endWhen"] = sale.EndWhen?.ToString("O") ?? string.Empty,
+                    ["amount"] = sale.Amount?.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
+                    ["employee"] = sale.EmployeeEmail,
+                    ["customer"] = sale.CustomerEmail
+                },
+                Array.Empty<EntityWorkspaceCollectionSectionDto>());
+    }
+
+    private async Task<EntityWorkspaceOperationResultDto> CreateSaleAsync(IReadOnlyDictionary<string, string?> values)
+    {
+        var when = ParseRequiredDateTimeOffset(values, "when");
+        var endWhen = ParseOptionalDateTimeOffset(values, "endWhen");
+        var amount = ParseOptionalDecimal(values, "amount");
+        var employee = await ResolveEmployeeAsync(GetRequiredValue(values, "employee"));
+        var customer = await ResolveCustomerAsync(GetRequiredValue(values, "customer"));
+
+        var id = Guid.NewGuid();
+        var sale = new Sale(id, when, employee.Id, customer.Id, endWhen, amount);
+
+        await _writeDbContext.Sales.AddAsync(sale);
+        await _writeDbContext.SaveChangesAsync();
+        return new EntityWorkspaceOperationResultDto("Sale created.", id);
+    }
+
+    private async Task<EntityWorkspaceOperationResultDto> UpdateSaleAsync(Guid id, IReadOnlyDictionary<string, string?> values)
+    {
+        var sale = await _writeDbContext.Sales.SingleOrDefaultAsync(item => item.Id == (EventId)id);
+
+        if (sale is null)
+        {
+            throw new InvalidOperationException($"Sale with ID '{id}' was not found.");
+        }
+
+        var when = ParseRequiredDateTimeOffset(values, "when");
+        var endWhen = ParseOptionalDateTimeOffset(values, "endWhen");
+        var amount = ParseOptionalDecimal(values, "amount");
+        var employee = await ResolveEmployeeAsync(GetRequiredValue(values, "employee"));
+        var customer = await ResolveCustomerAsync(GetRequiredValue(values, "customer"));
+
+        sale.UpdateDetails(when, employee.Id, customer.Id, endWhen, amount);
+        await _writeDbContext.SaveChangesAsync();
+        return new EntityWorkspaceOperationResultDto("Sale updated.", id);
+    }
+
+    private async Task<EntityWorkspaceOperationResultDto> DeleteSaleAsync(Guid id)
+    {
+        var sale = await _writeDbContext.Sales.SingleOrDefaultAsync(item => item.Id == (EventId)id);
+
+        if (sale is null)
+        {
+            throw new InvalidOperationException($"Sale with ID '{id}' was not found.");
+        }
+
+        _writeDbContext.Sales.Remove(sale);
+        await _writeDbContext.SaveChangesAsync();
+        return new EntityWorkspaceOperationResultDto("Sale deleted.");
+    }
+
     private async Task<IReadOnlyList<EntityWorkspaceListItemDto>> SearchAgentsAsync(string? searchPhrase)
     {
         var customers = await SearchAgentSubtypeAsync<CustomerReadModel>(searchPhrase, "Customer");
@@ -456,6 +615,115 @@ internal sealed class EntityWorkspaceBackendService : IEntityWorkspaceBackendSer
 
         return value.Trim();
     }
+
+    private async Task<(AgentId Id, string Name, string Email)> ResolveEmployeeAsync(string value)
+    {
+        var search = value.Trim();
+        var hasId = Guid.TryParse(search, out var id);
+
+        var matches = await _readDbContext.Employees
+            .Where(employee =>
+                (hasId && employee.Id == id) ||
+                employee.Email == search ||
+                employee.Name == search ||
+                employee.SocialSecurityNumber == search)
+            .Select(employee => new { employee.Id, employee.Name, employee.Email })
+            .AsNoTracking()
+            .ToListAsync();
+
+        if (matches.Count == 0)
+        {
+            throw new InvalidOperationException($"Employee '{search}' was not found.");
+        }
+
+        if (matches.Count > 1)
+        {
+            throw new InvalidOperationException($"Employee reference '{search}' is ambiguous. Use email, ID, or social security number.");
+        }
+
+        var match = matches[0];
+        return (new AgentId(match.Id), match.Name, match.Email);
+    }
+
+    private async Task<(AgentId Id, string Name, string Email)> ResolveCustomerAsync(string value)
+    {
+        var search = value.Trim();
+        var hasId = Guid.TryParse(search, out var id);
+
+        var matches = await _readDbContext.Customers
+            .Where(customer =>
+                (hasId && customer.Id == id) ||
+                customer.Email == search ||
+                customer.Name == search)
+            .Select(customer => new { customer.Id, customer.Name, customer.Email })
+            .AsNoTracking()
+            .ToListAsync();
+
+        if (matches.Count == 0)
+        {
+            throw new InvalidOperationException($"Customer '{search}' was not found.");
+        }
+
+        if (matches.Count > 1)
+        {
+            throw new InvalidOperationException($"Customer reference '{search}' is ambiguous. Use email or ID.");
+        }
+
+        var match = matches[0];
+        return (new AgentId(match.Id), match.Name, match.Email);
+    }
+
+    private static DateTimeOffset ParseRequiredDateTimeOffset(IReadOnlyDictionary<string, string?> values, string key)
+    {
+        var value = GetRequiredValue(values, key);
+
+        if (DateTimeOffset.TryParse(value, out var result))
+        {
+            return result;
+        }
+
+        throw new InvalidOperationException($"Field '{key}' must be a valid date/time.");
+    }
+
+    private static DateTimeOffset? ParseOptionalDateTimeOffset(IReadOnlyDictionary<string, string?> values, string key)
+    {
+        if (!values.TryGetValue(key, out var value) || string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        if (DateTimeOffset.TryParse(value.Trim(), out var result))
+        {
+            return result;
+        }
+
+        throw new InvalidOperationException($"Field '{key}' must be a valid date/time.");
+    }
+
+    private static decimal? ParseOptionalDecimal(IReadOnlyDictionary<string, string?> values, string key)
+    {
+        if (!values.TryGetValue(key, out var value) || string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        if (decimal.TryParse(value.Trim(), NumberStyles.Number, CultureInfo.InvariantCulture, out var result) ||
+            decimal.TryParse(value.Trim(), NumberStyles.Number, CultureInfo.CurrentCulture, out result))
+        {
+            return result;
+        }
+
+        throw new InvalidOperationException($"Field '{key}' must be a valid number.");
+    }
+
+    private static string FormatDateTime(DateTimeOffset value)
+        => value.ToString("yyyy-MM-dd HH:mm zzz");
+
+    private static string FormatOptionalDateTime(DateTimeOffset? value)
+        => value?.ToString("yyyy-MM-dd HH:mm zzz") ?? "None";
+
+    private static string FormatAmount(decimal? amount)
+        => amount?.ToString("0.##", CultureInfo.InvariantCulture) ?? "None";
 
     private static TEntity CreateEntityInstance<TEntity>(params object[] arguments)
     {
@@ -520,6 +788,12 @@ internal sealed class EntityWorkspaceBackendService : IEntityWorkspaceBackendSer
             if (targetType == typeof(EventId))
             {
                 convertedArgument = new EventId(guid);
+                return true;
+            }
+
+            if (targetType == typeof(ParticipationId))
+            {
+                convertedArgument = new ParticipationId(guid);
                 return true;
             }
         }

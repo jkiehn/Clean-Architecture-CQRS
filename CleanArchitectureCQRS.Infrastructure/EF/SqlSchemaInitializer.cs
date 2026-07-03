@@ -86,6 +86,77 @@ public static class SqlSchemaInitializer
             ALTER TABLE [SampleEntity].[Items]
             ADD [Version] int NOT NULL CONSTRAINT [DF_Items_Version] DEFAULT (0);
         END
+
+        IF OBJECT_ID(N'[SampleEntity].[Sales]', N'U') IS NULL
+        BEGIN
+            CREATE TABLE [SampleEntity].[Sales]
+            (
+                [Id] uniqueidentifier NOT NULL,
+                [When] datetimeoffset NOT NULL,
+                [EndWhen] datetimeoffset NULL,
+                [Amount] decimal(18,2) NULL,
+                [InternalParticipationId] uniqueidentifier NOT NULL,
+                [EmployeeId] uniqueidentifier NOT NULL,
+                [ExternalParticipationId] uniqueidentifier NOT NULL,
+                [CustomerId] uniqueidentifier NOT NULL,
+                [Version] int NOT NULL CONSTRAINT [DF_Sales_Version] DEFAULT (0),
+                CONSTRAINT [PK_Sales] PRIMARY KEY ([Id])
+            );
+        END
+        ELSE IF COL_LENGTH(N'[SampleEntity].[Sales]', N'Version') IS NULL
+        BEGIN
+            ALTER TABLE [SampleEntity].[Sales]
+            ADD [Version] int NOT NULL CONSTRAINT [DF_Sales_Version] DEFAULT (0);
+        END
+
+        IF OBJECT_ID(N'[SampleEntity].[Sales]', N'U') IS NOT NULL
+            AND COL_LENGTH(N'[SampleEntity].[Sales]', N'When') IS NULL
+        BEGIN
+            ALTER TABLE [SampleEntity].[Sales]
+            ADD [When] datetimeoffset NOT NULL CONSTRAINT [DF_Sales_When] DEFAULT (SYSDATETIMEOFFSET());
+        END
+
+        IF OBJECT_ID(N'[SampleEntity].[Sales]', N'U') IS NOT NULL
+            AND COL_LENGTH(N'[SampleEntity].[Sales]', N'EndWhen') IS NULL
+        BEGIN
+            ALTER TABLE [SampleEntity].[Sales]
+            ADD [EndWhen] datetimeoffset NULL;
+        END
+
+        IF OBJECT_ID(N'[SampleEntity].[Sales]', N'U') IS NOT NULL
+            AND COL_LENGTH(N'[SampleEntity].[Sales]', N'Amount') IS NULL
+        BEGIN
+            ALTER TABLE [SampleEntity].[Sales]
+            ADD [Amount] decimal(18,2) NULL;
+        END
+
+        IF OBJECT_ID(N'[SampleEntity].[Sales]', N'U') IS NOT NULL
+            AND COL_LENGTH(N'[SampleEntity].[Sales]', N'InternalParticipationId') IS NULL
+        BEGIN
+            ALTER TABLE [SampleEntity].[Sales]
+            ADD [InternalParticipationId] uniqueidentifier NOT NULL CONSTRAINT [DF_Sales_InternalParticipationId] DEFAULT (NEWID());
+        END
+
+        IF OBJECT_ID(N'[SampleEntity].[Sales]', N'U') IS NOT NULL
+            AND COL_LENGTH(N'[SampleEntity].[Sales]', N'EmployeeId') IS NULL
+        BEGIN
+            ALTER TABLE [SampleEntity].[Sales]
+            ADD [EmployeeId] uniqueidentifier NOT NULL CONSTRAINT [DF_Sales_EmployeeId] DEFAULT ('00000000-0000-0000-0000-000000000001');
+        END
+
+        IF OBJECT_ID(N'[SampleEntity].[Sales]', N'U') IS NOT NULL
+            AND COL_LENGTH(N'[SampleEntity].[Sales]', N'ExternalParticipationId') IS NULL
+        BEGIN
+            ALTER TABLE [SampleEntity].[Sales]
+            ADD [ExternalParticipationId] uniqueidentifier NOT NULL CONSTRAINT [DF_Sales_ExternalParticipationId] DEFAULT (NEWID());
+        END
+
+        IF OBJECT_ID(N'[SampleEntity].[Sales]', N'U') IS NOT NULL
+            AND COL_LENGTH(N'[SampleEntity].[Sales]', N'CustomerId') IS NULL
+        BEGIN
+            ALTER TABLE [SampleEntity].[Sales]
+            ADD [CustomerId] uniqueidentifier NOT NULL CONSTRAINT [DF_Sales_CustomerId] DEFAULT ('00000000-0000-0000-0000-000000000001');
+        END
         """;
 
     public static async Task EnsureAsync(this IServiceProvider serviceProvider)

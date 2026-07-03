@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace CleanArchitectureCQRS.Infrastructure.EF.Config;
 
-internal sealed class ReadConfiguration : IEntityTypeConfiguration<SampleEntityReadModel>, IEntityTypeConfiguration<SampleEntityItemReadModel>, IEntityTypeConfiguration<CustomerReadModel>, IEntityTypeConfiguration<VendorReadModel>, IEntityTypeConfiguration<EmployeeReadModel>, IEntityTypeConfiguration<ItemReadModel>
+internal sealed class ReadConfiguration : IEntityTypeConfiguration<SampleEntityReadModel>, IEntityTypeConfiguration<SampleEntityItemReadModel>, IEntityTypeConfiguration<CustomerReadModel>, IEntityTypeConfiguration<VendorReadModel>, IEntityTypeConfiguration<EmployeeReadModel>, IEntityTypeConfiguration<ItemReadModel>, IEntityTypeConfiguration<SaleReadModel>
 {
     public void Configure(EntityTypeBuilder<SampleEntityReadModel> builder)
     {
@@ -40,6 +40,15 @@ internal sealed class ReadConfiguration : IEntityTypeConfiguration<SampleEntityR
     public void Configure(EntityTypeBuilder<ItemReadModel> builder)
         => ConfigureResource(builder, "Items");
 
+    public void Configure(EntityTypeBuilder<SaleReadModel> builder)
+    {
+        ConfigureEvent(builder, "Sales");
+        builder.Property(sale => sale.InternalParticipationId).IsRequired();
+        builder.Property(sale => sale.EmployeeId).IsRequired();
+        builder.Property(sale => sale.ExternalParticipationId).IsRequired();
+        builder.Property(sale => sale.CustomerId).IsRequired();
+    }
+
     private static void ConfigureAgent<TAgent>(EntityTypeBuilder<TAgent> builder, string tableName) where TAgent : AgentReadModelBase
     {
         builder.ToTable(tableName);
@@ -62,5 +71,13 @@ internal sealed class ReadConfiguration : IEntityTypeConfiguration<SampleEntityR
         builder.Property(@event => @event.When).IsRequired();
         builder.Property(@event => @event.EndWhen);
         builder.Property(@event => @event.Amount);
+    }
+
+    private static void ConfigureParticipation<TParticipation>(EntityTypeBuilder<TParticipation> builder, string tableName) where TParticipation : ParticipationReadModelBase
+    {
+        builder.ToTable(tableName);
+        builder.HasKey(participation => participation.Id);
+        builder.Property(participation => participation.AgentId).IsRequired();
+        builder.Property(participation => participation.EventId).IsRequired();
     }
 }

@@ -62,6 +62,32 @@ public static class DescriptorDrivenWorkspaceDefinitions
             new EntityFieldDefinition("name", "Name", Required: true, Placeholder: "Resource name")
         });
 
+    private static readonly EntityActionDefinition CreateSaleAction = new(
+        "create",
+        "Create",
+        "btn btn-primary action-btn",
+        new[]
+        {
+            new EntityFieldDefinition("when", "When", Required: true, Placeholder: "2026-07-03T14:30:00+00:00"),
+            new EntityFieldDefinition("endWhen", "End When", Placeholder: "2026-07-03T15:00:00+00:00"),
+            new EntityFieldDefinition("amount", "Amount", EntityFieldKind.Number, Placeholder: "100.00"),
+            new EntityFieldDefinition("employee", "Employee", Required: true, Placeholder: "Employee email, name, id, or SSN"),
+            new EntityFieldDefinition("customer", "Customer", Required: true, Placeholder: "Customer email, name, or id")
+        });
+
+    private static readonly EntityActionDefinition EditSaleAction = new(
+        "edit",
+        "Save changes",
+        "btn btn-dark action-btn",
+        new[]
+        {
+            new EntityFieldDefinition("when", "When", Required: true, Placeholder: "2026-07-03T14:30:00+00:00"),
+            new EntityFieldDefinition("endWhen", "End When", Placeholder: "2026-07-03T15:00:00+00:00"),
+            new EntityFieldDefinition("amount", "Amount", EntityFieldKind.Number, Placeholder: "100.00"),
+            new EntityFieldDefinition("employee", "Employee", Required: true, Placeholder: "Employee email, name, id, or SSN"),
+            new EntityFieldDefinition("customer", "Customer", Required: true, Placeholder: "Customer email, name, or id")
+        });
+
     public static IReadOnlyList<EntityDescriptor> All { get; } = new[]
     {
         new EntityDescriptor(
@@ -111,6 +137,18 @@ public static class DescriptorDrivenWorkspaceDefinitions
             27,
             CreateEmployeeAction,
             EditEmployeeAction,
+            "Delete"),
+        new EntityDescriptor(
+            "sales",
+            "Sale",
+            "Sales",
+            "Create, inspect, update, and remove sales events.",
+            "bi-currency-dollar",
+            "Search sales by employee, customer, or amount",
+            "No sales found yet. Create the first sale from the panel on the right.",
+            28,
+            CreateSaleAction,
+            EditSaleAction,
             "Delete"),
         new EntityDescriptor(
             "agents",

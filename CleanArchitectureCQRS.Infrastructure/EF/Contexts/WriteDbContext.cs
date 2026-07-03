@@ -12,6 +12,7 @@ internal sealed class WriteDbContext : DbContext
     public DbSet<Vendor> Vendors { get; set; }
     public DbSet<Employee> Employees { get; set; }
     public DbSet<Item> Items { get; set; }
+    public DbSet<Sale> Sales { get; set; }
 
     public WriteDbContext(DbContextOptions<WriteDbContext> options) : base(options)
     {
@@ -28,5 +29,6 @@ internal sealed class WriteDbContext : DbContext
         modelBuilder.ApplyConfiguration<Vendor>(configuration);
         modelBuilder.ApplyConfiguration<Employee>(configuration);
         modelBuilder.ApplyConfiguration<Item>(configuration);
+        modelBuilder.ApplyConfiguration<Sale>(configuration);
     }
 }

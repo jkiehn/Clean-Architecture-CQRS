@@ -215,4 +215,89 @@ public class EntityWorkspaceBackendServiceTests
         detail!.Summary.ShouldContain(property => property.Label == "Social Security Number" && property.Value == "444-44-4444");
         detail.EditValues["socialSecurityNumber"].ShouldBe("444-44-4444");
     }
+
+    [Fact]
+    public async Task CreateAsync_Creates_Sale_With_Employee_And_Customer_Participations()
+    {
+        await using var connection = new SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+
+        var writeOptions = new DbContextOptionsBuilder<WriteDbContext>()
+            .UseSqlite(connection)
+            .Options;
+        var readOptions = new DbContextOptionsBuilder<ReadDbContext>()
+            .UseSqlite(connection)
+            .Options;
+
+        var employeeId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+
+        await using (var arrangeContext = new WriteDbContext(writeOptions))
+        {
+            await arrangeContext.Database.EnsureCreatedAsync();
+            arrangeContext.Employees.Add(new Employee(employeeId, "Emma", "emma@example.com", "444-44-4444"));
+            arrangeContext.Customers.Add(new Customer(customerId, "Contoso", "buyer@contoso.example"));
+            await arrangeContext.SaveChangesAsync();
+        }
+
+        await using var readContext = new ReadDbContext(readOptions);
+        await using var writeContext = new WriteDbContext(writeOptions);
+        IEntityWorkspaceBackendService service = new EntityWorkspaceBackendService(readContext, writeContext);
+
+        var result = await service.CreateAsync("sales", new Dictionary<string, string?>
+        {
+            ["when"] = "2026-07-03T10:00:00+00:00",
+            ["amount"] = "125.50",
+            ["employee"] = "emma@example.com",
+            ["customer"] = "buyer@contoso.example"
+        });
+
+        result.EntityId.ShouldNotBeNull();
+        result.Message.ShouldBe("Sale created.");
+
+        await using var assertReadContext = new ReadDbContext(readOptions);
+        var storedSale = await assertReadContext.Sales.SingleAsync();
+        storedSale.EmployeeId.ShouldBe(employeeId);
+        storedSale.CustomerId.ShouldBe(customerId);
+        storedSale.Amount.ShouldBe(125.50m);
+    }
+
+    [Fact]
+    public async Task GetAsync_Returns_Sale_Detail_With_Employee_And_Customer()
+    {
+        await using var connection = new SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+
+        var writeOptions = new DbContextOptionsBuilder<WriteDbContext>()
+            .UseSqlite(connection)
+            .Options;
+        var readOptions = new DbContextOptionsBuilder<ReadDbContext>()
+            .UseSqlite(connection)
+            .Options;
+
+        var saleId = Guid.NewGuid();
+        var employeeId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+
+        await using (var arrangeContext = new WriteDbContext(writeOptions))
+        {
+            await arrangeContext.Database.EnsureCreatedAsync();
+            arrangeContext.Employees.Add(new Employee(employeeId, "Emma", "emma@example.com", "444-44-4444"));
+            arrangeContext.Customers.Add(new Customer(customerId, "Contoso", "buyer@contoso.example"));
+            arrangeContext.Sales.Add(new Sale(saleId, new DateTimeOffset(2026, 7, 3, 10, 0, 0, TimeSpan.Zero), employeeId, customerId, amount: 125.50m));
+            await arrangeContext.SaveChangesAsync();
+        }
+
+        await using var readContext = new ReadDbContext(readOptions);
+        await using var writeContext = new WriteDbContext(writeOptions);
+        IEntityWorkspaceBackendService service = new EntityWorkspaceBackendService(readContext, writeContext);
+
+        var detail = await service.GetAsync("sales", saleId);
+
+        detail.ShouldNotBeNull();
+        detail!.Summary.ShouldContain(property => property.Label == "Employee" && property.Value.Contains("emma@example.com"));
+        detail.Summary.ShouldContain(property => property.Label == "Customer" && property.Value.Contains("buyer@contoso.example"));
+        detail.EditValues["employee"].ShouldBe("emma@example.com");
+        detail.EditValues["customer"].ShouldBe("buyer@contoso.example");
+    }
 }
