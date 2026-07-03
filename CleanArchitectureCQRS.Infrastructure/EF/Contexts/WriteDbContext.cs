@@ -8,8 +8,7 @@ namespace CleanArchitectureCQRS.Infrastructure.EF.Contexts;
 internal sealed class WriteDbContext : DbContext
 {
     public DbSet<SampleEntity> SampleEntities { get; set; }
-
-
+    public DbSet<Customer> Customers { get; set; }
 
     public WriteDbContext(DbContextOptions<WriteDbContext> options) : base(options)
     {
@@ -22,5 +21,6 @@ internal sealed class WriteDbContext : DbContext
         var configuration = new WriteConfiguration();
         modelBuilder.ApplyConfiguration<SampleEntity>(configuration);
         modelBuilder.ApplyConfiguration<SampleEntityItem>(configuration);
+        modelBuilder.ApplyConfiguration<Customer>(configuration);
     }
 }

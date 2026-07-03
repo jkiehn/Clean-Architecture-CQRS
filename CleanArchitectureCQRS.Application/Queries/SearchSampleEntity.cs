@@ -5,5 +5,5 @@ namespace CleanArchitectureCQRS.Application.Queries;
 
 public class SearchSampleEntity : IQuery<IEnumerable<SampleEntityDto>>
 {
-    public string SearchPhrase { get; set; }
+    public string? SearchPhrase { get; set; }
 }

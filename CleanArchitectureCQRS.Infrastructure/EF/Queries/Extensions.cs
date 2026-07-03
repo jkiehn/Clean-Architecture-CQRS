@@ -22,4 +22,10 @@ internal static class Extensions
                 IsTaken: pi.IsTaken
             )
             ));
+
+    public static CustomerDto AsDto(this CustomerReadModel readModel)
+        => new(readModel.Id, readModel.Name, readModel.Email);
+
+    public static AgentDto AsAgentDto(this CustomerReadModel readModel)
+        => new(readModel.Id, readModel.Name, readModel.Email, "Customer");
 }

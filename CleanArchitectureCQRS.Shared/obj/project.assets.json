@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "targets": {
     "net9.0": {
       "Microsoft.AspNetCore.Http.Abstractions/2.2.0": {
@@ -422,7 +422,7 @@
           }
         }
       },
-      "System.Text.Json/6.0.0": {
+      "System.Text.Json/6.0.10": {
         "type": "package",
         "dependencies": {
           "System.Runtime.CompilerServices.Unsafe": "6.0.0",
@@ -439,7 +439,7 @@
           }
         },
         "build": {
-          "buildTransitive/netcoreapp3.1/_._": {}
+          "buildTransitive/netcoreapp3.1/System.Text.Json.targets": {}
         }
       },
       "CleanArchitectureCQRS.Shared.Abstractions/1.0.0": {
@@ -1116,10 +1116,10 @@
         "useSharedDesignerContext.txt"
       ]
     },
-    "System.Text.Json/6.0.0": {
-      "sha512": "zaJsHfESQvJ11vbXnNlkrR46IaMULk/gHxYsJphzSF+07kTjPHv+Oc14w6QEOfo3Q4hqLJgStUaYB9DBl0TmWg==",
+    "System.Text.Json/6.0.10": {
+      "sha512": "NSB0kDipxn2ychp88NXWfFRFlmi1bst/xynOutbnpEfRCT9JZkZ7KOmF/I/hNKo2dILiMGnqblm+j1sggdLB9g==",
       "type": "package",
-      "path": "system.text.json/6.0.0",
+      "path": "system.text.json/6.0.10",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
@@ -1154,9 +1154,9 @@
         "analyzers/dotnet/roslyn4.0/cs/tr/System.Text.Json.SourceGeneration.resources.dll",
         "analyzers/dotnet/roslyn4.0/cs/zh-Hans/System.Text.Json.SourceGeneration.resources.dll",
         "analyzers/dotnet/roslyn4.0/cs/zh-Hant/System.Text.Json.SourceGeneration.resources.dll",
-        "build/System.Text.Json.targets",
         "buildTransitive/netcoreapp2.0/System.Text.Json.targets",
-        "buildTransitive/netcoreapp3.1/_._",
+        "buildTransitive/netcoreapp3.1/System.Text.Json.targets",
+        "buildTransitive/netstandard2.0/System.Text.Json.targets",
         "lib/net461/System.Text.Json.dll",
         "lib/net461/System.Text.Json.xml",
         "lib/net6.0/System.Text.Json.dll",
@@ -1165,7 +1165,7 @@
         "lib/netcoreapp3.1/System.Text.Json.xml",
         "lib/netstandard2.0/System.Text.Json.dll",
         "lib/netstandard2.0/System.Text.Json.xml",
-        "system.text.json.6.0.0.nupkg.sha512",
+        "system.text.json.6.0.10.nupkg.sha512",
         "system.text.json.nuspec",
         "useSharedDesignerContext.txt"
       ]
@@ -1184,27 +1184,28 @@
       "Microsoft.Extensions.Configuration.Binder >= 9.0.3",
       "Microsoft.Extensions.DependencyInjection >= 9.0.3",
       "Microsoft.Extensions.Hosting.Abstractions >= 9.0.3",
-      "Scrutor >= 4.2.2"
+      "Scrutor >= 4.2.2",
+      "System.Text.Json >= 6.0.10"
     ]
   },
   "packageFolders": {
-    "C:\\Users\\RezaKazemi\\.nuget\\packages\\": {},
+    "C:\\Users\\jkieh\\.nuget\\packages\\": {},
     "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "D:\\my\\MyRepos\\Clean-Architecture-CQRS\\CleanArchitectureCQRS.Shared\\CleanArchitectureCQRS.Shared.csproj",
+      "projectUniqueName": "C:\\Users\\jkieh\\source\\repos\\CQRS\\Clean-Architecture-CQRS\\CleanArchitectureCQRS.Shared\\CleanArchitectureCQRS.Shared.csproj",
       "projectName": "CleanArchitectureCQRS.Shared",
-      "projectPath": "D:\\my\\MyRepos\\Clean-Architecture-CQRS\\CleanArchitectureCQRS.Shared\\CleanArchitectureCQRS.Shared.csproj",
-      "packagesPath": "C:\\Users\\RezaKazemi\\.nuget\\packages\\",
-      "outputPath": "D:\\my\\MyRepos\\Clean-Architecture-CQRS\\CleanArchitectureCQRS.Shared\\obj\\",
+      "projectPath": "C:\\Users\\jkieh\\source\\repos\\CQRS\\Clean-Architecture-CQRS\\CleanArchitectureCQRS.Shared\\CleanArchitectureCQRS.Shared.csproj",
+      "packagesPath": "C:\\Users\\jkieh\\.nuget\\packages\\",
+      "outputPath": "C:\\Users\\jkieh\\source\\repos\\CQRS\\Clean-Architecture-CQRS\\CleanArchitectureCQRS.Shared\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
       ],
       "configFilePaths": [
-        "C:\\Users\\RezaKazemi\\AppData\\Roaming\\NuGet\\NuGet.Config",
+        "C:\\Users\\jkieh\\AppData\\Roaming\\NuGet\\NuGet.Config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
       ],
@@ -1213,19 +1214,16 @@
       ],
       "sources": {
         "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
-        "https://api.nuget.org/v3/index.json": {},
-        "https://git.alibaba.ir/api/v4/projects/1524/packages/nuget/index.json": {},
-        "https://git.alibaba.ir/api/v4/projects/1525/packages/nuget/index.json": {},
-        "https://git.alibaba.ir/api/v4/projects/1528/packages/nuget/index.json": {},
-        "https://nexus.indraproject.ir/repository/nuget.org-proxy-v3/index.json": {},
-        "https://pkgs.dev.azure.com/tgbots/Telegram.Bot/_packaging/release/nuget/v3/index.json": {}
+        "C:\\Program Files\\dotnet\\library-packs": {},
+        "https://api.nuget.org/v3/index.json": {}
       },
       "frameworks": {
         "net9.0": {
+          "framework": "net9.0",
           "targetAlias": "net9.0",
           "projectReferences": {
-            "D:\\my\\MyRepos\\Clean-Architecture-CQRS\\CleanArchitectureCQRS.Shared.Abstractions\\CleanArchitectureCQRS.Shared.Abstractions.csproj": {
-              "projectPath": "D:\\my\\MyRepos\\Clean-Architecture-CQRS\\CleanArchitectureCQRS.Shared.Abstractions\\CleanArchitectureCQRS.Shared.Abstractions.csproj"
+            "C:\\Users\\jkieh\\source\\repos\\CQRS\\Clean-Architecture-CQRS\\CleanArchitectureCQRS.Shared.Abstractions\\CleanArchitectureCQRS.Shared.Abstractions.csproj": {
+              "projectPath": "C:\\Users\\jkieh\\source\\repos\\CQRS\\Clean-Architecture-CQRS\\CleanArchitectureCQRS.Shared.Abstractions\\CleanArchitectureCQRS.Shared.Abstractions.csproj"
             }
           }
         }
@@ -1240,10 +1238,11 @@
         "auditLevel": "low",
         "auditMode": "direct"
       },
-      "SdkAnalysisLevel": "9.0.200"
+      "SdkAnalysisLevel": "10.0.300"
     },
     "frameworks": {
       "net9.0": {
+        "framework": "net9.0",
         "targetAlias": "net9.0",
         "dependencies": {
           "Microsoft.AspNetCore.Http.Abstractions": {
@@ -1269,6 +1268,10 @@
           "Scrutor": {
             "target": "Package",
             "version": "[4.2.2, )"
+          },
+          "System.Text.Json": {
+            "target": "Package",
+            "version": "[6.0.10, )"
           }
         },
         "imports": [
@@ -1282,18 +1285,12 @@
         ],
         "assetTargetFallback": true,
         "warn": true,
-        "downloadDependencies": [
-          {
-            "name": "Microsoft.Net.Sdk.Compilers.Toolset",
-            "version": "[9.0.201, 9.0.201]"
-          }
-        ],
         "frameworkReferences": {
           "Microsoft.NETCore.App": {
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.201/PortableRuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.301/PortableRuntimeIdentifierGraph.json"
       }
     }
   }

@@ -15,6 +15,7 @@ These instructions will get you a copy of the project up and running on your loc
 
 * .NET 9 SDK
 * Visual Studio 2022 or Visual Studio Code or JetBrains Rider 2024.*
+* SQL Server Express LocalDB (for local database hosting)
 
 ### Installing
 

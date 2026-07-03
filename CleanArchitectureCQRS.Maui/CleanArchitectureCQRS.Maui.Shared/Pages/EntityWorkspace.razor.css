@@ -1,0 +1,238 @@
+.hero {
+    display: flex;
+    justify-content: space-between;
+    gap: 1.5rem;
+    padding: 1.75rem;
+    margin-bottom: 1.5rem;
+    border-radius: 1.5rem;
+    color: #f5f7fa;
+    background:
+        radial-gradient(circle at top right, rgba(255, 208, 117, 0.38), transparent 30%),
+        linear-gradient(135deg, #133a5e, #1d6f68 52%, #f06d43 115%);
+    box-shadow: 0 18px 45px rgba(14, 30, 37, 0.22);
+}
+
+.eyebrow,
+.panel-kicker,
+.meta-label,
+.detail-label {
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-size: 0.72rem;
+    opacity: 0.78;
+}
+
+.hero h1,
+.panel-header h2,
+.section-heading h3 {
+    margin: 0;
+}
+
+.hero-copy {
+    max-width: 42rem;
+    margin: 0.75rem 0 0;
+    line-height: 1.6;
+}
+
+.hero-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    min-width: 15rem;
+}
+
+.meta-value {
+    display: block;
+    margin-top: 0.25rem;
+    font-weight: 600;
+    word-break: break-word;
+}
+
+.dashboard {
+    display: grid;
+    gap: 1.5rem;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+}
+
+.panel {
+    grid-column: span 12;
+    padding: 1.5rem;
+    border: 1px solid #d8e1e8;
+    border-radius: 1.25rem;
+    background: #ffffff;
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+}
+
+.panel-header,
+.section-heading,
+.search-row,
+.item-card,
+.item-actions,
+.detail-grid {
+    display: flex;
+    gap: 1rem;
+}
+
+.panel-header,
+.section-heading {
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.search-row {
+    margin-bottom: 1rem;
+}
+
+.search-row .form-control {
+    flex: 1;
+}
+
+.pill,
+.tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.35rem 0.7rem;
+    border-radius: 999px;
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+
+.pill {
+    background: #e9f5f2;
+    color: #0f5b54;
+}
+
+.entity-list,
+.items-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+}
+
+.entity-card,
+.detail-card,
+.item-card {
+    border: 1px solid #dce6ee;
+    border-radius: 1rem;
+    background: #f8fbfd;
+}
+
+.entity-card {
+    width: 100%;
+    padding: 1rem;
+    text-align: left;
+    display: grid;
+    gap: 0.35rem;
+    transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.entity-card:hover,
+.entity-card.selected {
+    transform: translateY(-1px);
+    border-color: #1d6f68;
+    box-shadow: 0 12px 24px rgba(29, 111, 104, 0.12);
+}
+
+.entity-name {
+    font-weight: 700;
+    color: #17324d;
+}
+
+.entity-subtitle,
+.entity-count,
+.item-card p,
+.empty-state,
+.feedback {
+    margin: 0;
+}
+
+.entity-subtitle,
+.entity-count,
+.item-card p,
+.empty-state {
+    color: #617181;
+}
+
+.form-grid,
+.item-form {
+    display: grid;
+    gap: 1rem;
+}
+
+.action-btn {
+    width: fit-content;
+}
+
+.detail-grid {
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+}
+
+.detail-card {
+    flex: 1 1 15rem;
+    padding: 1rem;
+    display: grid;
+    gap: 0.3rem;
+}
+
+.item-card {
+    padding: 1rem;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.item-actions {
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.feedback {
+    padding: 0.9rem 1rem;
+    margin-bottom: 1rem;
+    border-radius: 0.9rem;
+    font-weight: 600;
+}
+
+.feedback-success {
+    background: #ecfdf4;
+    color: #15603d;
+    border: 1px solid #c1f0d0;
+}
+
+.feedback-error {
+    background: #fff1f1;
+    color: #9a2222;
+    border: 1px solid #f0c1c1;
+}
+
+@media (min-width: 900px) {
+    .dashboard > .panel:nth-child(1),
+    .dashboard > .panel:nth-child(2) {
+        grid-column: span 4;
+    }
+
+    .panel-detail {
+        grid-column: span 4;
+    }
+}
+
+@media (max-width: 899px) {
+    .hero {
+        flex-direction: column;
+    }
+
+    .search-row,
+    .item-card {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .item-actions {
+        justify-content: flex-start;
+    }
+}

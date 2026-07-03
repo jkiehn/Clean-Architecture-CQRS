@@ -1,0 +1,561 @@
+@page "/entities/{EntityKey}"
+@inject IEntityWorkspaceRegistry Registry
+@inject IFormFactor FormFactor
+
+<PageTitle>@(_descriptor?.PluralDisplayName ?? "Entity Workspace")</PageTitle>
+
+@if (_descriptor is null)
+{
+    <section class="hero">
+        <div>
+            <p class="eyebrow">Entity Workspace</p>
+            <h1>Unknown entity type</h1>
+            <p class="hero-copy">No workspace is registered for <strong>@EntityKey</strong>.</p>
+        </div>
+    </section>
+}
+else
+{
+    <section class="hero">
+        <div>
+            <p class="eyebrow">Metadata-driven workspace</p>
+            <h1>@_descriptor.PluralDisplayName</h1>
+            <p class="hero-copy">
+                @_descriptor.Description Running on <strong>@FormFactor.GetFormFactor()</strong>
+                for <strong>@FormFactor.GetPlatform()</strong>.
+            </p>
+        </div>
+        <div class="hero-meta">
+            <div>
+                <span class="meta-label">API</span>
+                <span class="meta-value">@ApiBaseAddressResolver.GetDefault()</span>
+            </div>
+            <button class="btn btn-outline-light" @onclick="RefreshAsync" disabled="@_isBusy">Refresh</button>
+        </div>
+    </section>
+
+    @if (!string.IsNullOrWhiteSpace(_errorMessage))
+    {
+        <div class="feedback feedback-error">@_errorMessage</div>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(_statusMessage))
+    {
+        <div class="feedback feedback-success">@_statusMessage</div>
+    }
+
+    <div class="dashboard">
+        <section class="panel">
+            <div class="panel-header">
+                <div>
+                    <p class="panel-kicker">Browse</p>
+                    <h2>@_descriptor.PluralDisplayName</h2>
+                </div>
+                <span class="pill">@_items.Count result(s)</span>
+            </div>
+
+            <div class="search-row">
+                <input class="form-control" value="@_searchPhrase" @oninput="OnSearchChanged" placeholder="@_descriptor.SearchPlaceholder" />
+                <button class="btn btn-dark" @onclick="SearchAsync" disabled="@_isBusy">Search</button>
+            </div>
+
+            @if (_isLoading && _items.Count == 0)
+            {
+                <p class="empty-state">Loading @_descriptor.PluralDisplayName.ToLowerInvariant()...</p>
+            }
+            else if (_items.Count == 0)
+            {
+                <p class="empty-state">@_descriptor.EmptyStateMessage</p>
+            }
+            else
+            {
+                <div class="entity-list">
+                    @foreach (var item in _items)
+                    {
+                        <button class="entity-card @(item.Id == _selectedItem?.Id ? "selected" : string.Empty)"
+                                @onclick="() => SelectAsync(item.Id)">
+                            <span class="entity-name">@item.Title</span>
+                            @if (!string.IsNullOrWhiteSpace(item.Subtitle))
+                            {
+                                <span class="entity-subtitle">@item.Subtitle</span>
+                            }
+                            @foreach (var meta in item.Meta)
+                            {
+                                <span class="entity-count">@meta.Label: @meta.Value</span>
+                            }
+                        </button>
+                    }
+                </div>
+            }
+        </section>
+
+        @if (_descriptor.CreateAction is not null)
+        {
+            <section class="panel">
+                <div class="panel-header">
+                    <div>
+                        <p class="panel-kicker">Create</p>
+                        <h2>New @_descriptor.DisplayName.ToLowerInvariant()</h2>
+                    </div>
+                </div>
+
+                <form class="form-grid" @onsubmit="CreateAsync" @onsubmit:preventDefault="true">
+                    @foreach (var field in _descriptor.CreateAction.Fields ?? Array.Empty<EntityFieldDefinition>())
+                    {
+                        @RenderField(field, _createValues)
+                    }
+
+                    <button class="@_descriptor.CreateAction.ButtonClass" type="submit" disabled="@_isBusy">@_descriptor.CreateAction.Label</button>
+                </form>
+            </section>
+        }
+
+        <section class="panel panel-detail">
+            <div class="panel-header">
+                <div>
+                    <p class="panel-kicker">Inspect</p>
+                    <h2>@(_selectedDetail?.Title ?? $"Select a {_descriptor.DisplayName.ToLowerInvariant()}")</h2>
+                </div>
+                @if (_selectedDetail is not null && !string.IsNullOrWhiteSpace(_descriptor.DeleteLabel))
+                {
+                    <button class="btn btn-outline-danger" @onclick="DeleteSelectedAsync" disabled="@_isBusy">@_descriptor.DeleteLabel</button>
+                }
+            </div>
+
+            @if (_selectedDetail is null)
+            {
+                <p class="empty-state">Choose a @_descriptor.DisplayName.ToLowerInvariant() from the list to inspect it.</p>
+            }
+            else
+            {
+                <div class="detail-grid">
+                    @foreach (var property in _selectedDetail.Summary)
+                    {
+                        <div class="detail-card">
+                            <span class="detail-label">@property.Label</span>
+                            <strong>@property.Value</strong>
+                        </div>
+                    }
+                </div>
+
+                @if (_descriptor.EditAction is not null)
+                {
+                    <form class="form-grid" @onsubmit="UpdateAsync" @onsubmit:preventDefault="true">
+                        @foreach (var field in _descriptor.EditAction.Fields ?? Array.Empty<EntityFieldDefinition>())
+                        {
+                            @RenderField(field, _editValues)
+                        }
+
+                        <button class="@_descriptor.EditAction.ButtonClass" type="submit" disabled="@_isBusy">@_descriptor.EditAction.Label</button>
+                    </form>
+                }
+
+                @foreach (var collection in _selectedDetail.Collections)
+                {
+                    <div class="items-section">
+                        <div class="section-heading">
+                            <h3>@collection.Title</h3>
+                            <span class="pill">@collection.Items.Count total</span>
+                        </div>
+
+                        @if (collection.CreateAction is not null)
+                        {
+                            <form class="item-form" @onsubmit="args => ExecuteCollectionActionAsync(args, collection)" @onsubmit:preventDefault="true">
+                                @foreach (var field in collection.CreateAction.Fields ?? Array.Empty<EntityFieldDefinition>())
+                                {
+                                    @RenderField(field, _collectionValues[collection.Key])
+                                }
+
+                                <button class="@collection.CreateAction.ButtonClass" type="submit" disabled="@_isBusy">@collection.CreateAction.Label</button>
+                            </form>
+                        }
+
+                        @if (collection.Items.Count == 0)
+                        {
+                            <p class="empty-state">@collection.EmptyStateMessage</p>
+                        }
+                        else
+                        {
+                            @foreach (var item in collection.Items)
+                            {
+                                <div class="item-card">
+                                    <div>
+                                        <strong>@item.Title</strong>
+                                        @if (!string.IsNullOrWhiteSpace(item.Subtitle))
+                                        {
+                                            <p>@item.Subtitle</p>
+                                        }
+                                        @foreach (var meta in item.Meta)
+                                        {
+                                            <p>@meta.Label: @meta.Value</p>
+                                        }
+                                    </div>
+                                    <div class="item-actions">
+                                        @foreach (var action in item.Actions)
+                                        {
+                                            <button class="@action.ButtonClass"
+                                                    @onclick="() => ExecuteCollectionItemActionAsync(collection, item, action)"
+                                                    disabled="@_isBusy">
+                                                @action.Label
+                                            </button>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        }
+                    </div>
+                }
+            }
+        </section>
+    </div>
+}
+
+@code {
+    [Parameter] public string EntityKey { get; set; } = string.Empty;
+
+    private EntityDescriptor? _descriptor;
+    private IEntityWorkspaceService? _service;
+    private readonly List<EntityListItem> _items = [];
+    private readonly Dictionary<string, object?> _createValues = [];
+    private readonly Dictionary<string, object?> _editValues = [];
+    private readonly Dictionary<string, Dictionary<string, object?>> _collectionValues = [];
+    private EntityListItem? _selectedItem;
+    private EntityDetail? _selectedDetail;
+    private string _searchPhrase = string.Empty;
+    private string? _statusMessage;
+    private string? _errorMessage;
+    private bool _isLoading = true;
+    private bool _isBusy;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await InitializeWorkspaceAsync();
+    }
+
+    private async Task InitializeWorkspaceAsync()
+    {
+        _descriptor = null;
+        _service = null;
+        _items.Clear();
+        _selectedItem = null;
+        _selectedDetail = null;
+        _createValues.Clear();
+        _editValues.Clear();
+        _collectionValues.Clear();
+        _errorMessage = null;
+        _statusMessage = null;
+
+        try
+        {
+            _service = Registry.Get(EntityKey);
+            _descriptor = _service.Descriptor;
+            InitializeActionValues(_descriptor.CreateAction, _createValues);
+            await LoadItemsAsync();
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+            _isLoading = false;
+        }
+    }
+
+    private async Task SearchAsync()
+        => await RunAsync(LoadItemsAsync, clearStatus: false);
+
+    private async Task RefreshAsync()
+        => await RunAsync(LoadItemsAsync, clearStatus: false);
+
+    private async Task LoadItemsAsync()
+    {
+        if (_service is null)
+        {
+            return;
+        }
+
+        _isLoading = true;
+        _items.Clear();
+        _items.AddRange(await _service.SearchAsync(_searchPhrase));
+
+        if (_selectedItem is not null)
+        {
+            _selectedItem = _items.FirstOrDefault(item => item.Id == _selectedItem.Id);
+
+            if (_selectedItem is not null)
+            {
+                await LoadDetailAsync(_selectedItem.Id);
+            }
+            else
+            {
+                _selectedDetail = null;
+                _editValues.Clear();
+                _collectionValues.Clear();
+            }
+        }
+    }
+
+    private async Task SelectAsync(Guid id)
+        => await RunAsync(() => LoadDetailAsync(id), clearStatus: false);
+
+    private async Task LoadDetailAsync(Guid id)
+    {
+        if (_service is null)
+        {
+            return;
+        }
+
+        _selectedItem = _items.FirstOrDefault(item => item.Id == id);
+        _selectedDetail = await _service.GetAsync(id);
+
+        _editValues.Clear();
+        _collectionValues.Clear();
+
+        if (_selectedDetail is null || _descriptor is null)
+        {
+            return;
+        }
+
+        InitializeActionValues(_descriptor.EditAction, _editValues, _selectedDetail.EditValues);
+
+        foreach (var collection in _selectedDetail.Collections)
+        {
+            var values = new Dictionary<string, object?>();
+            InitializeActionValues(collection.CreateAction, values);
+            _collectionValues[collection.Key] = values;
+        }
+    }
+
+    private async Task CreateAsync()
+    {
+        if (_service is null || _descriptor?.CreateAction is null)
+        {
+            return;
+        }
+
+        if (!ValidateAction(_descriptor.CreateAction, _createValues))
+        {
+            return;
+        }
+
+        await RunAsync(async () =>
+        {
+            var result = await _service.CreateAsync(_createValues);
+            InitializeActionValues(_descriptor.CreateAction, _createValues);
+            await LoadItemsAsync();
+
+            if (result.EntityId.HasValue)
+            {
+                await LoadDetailAsync(result.EntityId.Value);
+            }
+
+            _statusMessage = result.Message;
+        });
+    }
+
+    private async Task UpdateAsync()
+    {
+        if (_service is null || _descriptor?.EditAction is null || _selectedDetail is null)
+        {
+            return;
+        }
+
+        if (!ValidateAction(_descriptor.EditAction, _editValues))
+        {
+            return;
+        }
+
+        await RunAsync(async () =>
+        {
+            var result = await _service.UpdateAsync(_selectedDetail.Id, _editValues);
+            await LoadItemsAsync();
+            await LoadDetailAsync(_selectedDetail.Id);
+            _statusMessage = result.Message;
+        });
+    }
+
+    private async Task DeleteSelectedAsync()
+    {
+        if (_service is null || _selectedDetail is null)
+        {
+            return;
+        }
+
+        await RunAsync(async () =>
+        {
+            var id = _selectedDetail.Id;
+            var result = await _service.DeleteAsync(id);
+            _selectedItem = null;
+            _selectedDetail = null;
+            _editValues.Clear();
+            _collectionValues.Clear();
+            await LoadItemsAsync();
+            _statusMessage = result.Message;
+        });
+    }
+
+    private async Task ExecuteCollectionActionAsync(EventArgs _, EntityCollectionSection collection)
+    {
+        if (_service is null || _selectedDetail is null || collection.CreateAction is null)
+        {
+            return;
+        }
+
+        var values = _collectionValues[collection.Key];
+
+        if (!ValidateAction(collection.CreateAction, values))
+        {
+            return;
+        }
+
+        await RunAsync(async () =>
+        {
+            var result = await _service.ExecuteCollectionActionAsync(_selectedDetail.Id, collection.Key, collection.CreateAction.Key, values);
+            InitializeActionValues(collection.CreateAction, values);
+            await LoadItemsAsync();
+            await LoadDetailAsync(_selectedDetail.Id);
+            _statusMessage = result.Message;
+        });
+    }
+
+    private async Task ExecuteCollectionItemActionAsync(EntityCollectionSection collection, EntityCollectionItem item, EntityCollectionItemAction action)
+    {
+        if (_service is null || _selectedDetail is null)
+        {
+            return;
+        }
+
+        await RunAsync(async () =>
+        {
+            var result = await _service.ExecuteCollectionItemActionAsync(_selectedDetail.Id, collection.Key, item.Key, action.Key);
+            await LoadItemsAsync();
+            await LoadDetailAsync(_selectedDetail.Id);
+            _statusMessage = result.Message;
+        });
+    }
+
+    private void OnSearchChanged(ChangeEventArgs args)
+    {
+        _searchPhrase = args.Value?.ToString() ?? string.Empty;
+    }
+
+    private RenderFragment RenderField(EntityFieldDefinition field, Dictionary<string, object?> values) => builder =>
+    {
+        var seq = 0;
+
+        builder.OpenElement(seq++, "div");
+        builder.OpenElement(seq++, "label");
+        builder.AddAttribute(seq++, "class", "form-label");
+        builder.AddContent(seq++, field.Label);
+        builder.CloseElement();
+
+        switch (field.Kind)
+        {
+            case EntityFieldKind.Select:
+                builder.OpenElement(seq++, "select");
+                builder.AddAttribute(seq++, "class", "form-select");
+                builder.AddAttribute(seq++, "value", GetFieldValue(values, field));
+                builder.AddAttribute(seq++, "onchange", EventCallback.Factory.Create<ChangeEventArgs>(this, args => values[field.Key] = args.Value?.ToString()));
+
+                foreach (var option in field.Options ?? Array.Empty<EntityFieldOption>())
+                {
+                    builder.OpenElement(seq++, "option");
+                    builder.AddAttribute(seq++, "value", option.Value);
+                    builder.AddContent(seq++, option.Label);
+                    builder.CloseElement();
+                }
+
+                builder.CloseElement();
+                break;
+
+            case EntityFieldKind.Number:
+                builder.OpenElement(seq++, "input");
+                builder.AddAttribute(seq++, "class", "form-control");
+                builder.AddAttribute(seq++, "type", "number");
+                builder.AddAttribute(seq++, "value", GetFieldValue(values, field));
+                builder.AddAttribute(seq++, "oninput", EventCallback.Factory.Create<ChangeEventArgs>(this, args => values[field.Key] = args.Value?.ToString()));
+                builder.CloseElement();
+                break;
+
+            default:
+                builder.OpenElement(seq++, "input");
+                builder.AddAttribute(seq++, "class", "form-control");
+                builder.AddAttribute(seq++, "value", GetFieldValue(values, field));
+                builder.AddAttribute(seq++, "placeholder", field.Placeholder);
+                builder.AddAttribute(seq++, "oninput", EventCallback.Factory.Create<ChangeEventArgs>(this, args => values[field.Key] = args.Value?.ToString()));
+                builder.CloseElement();
+                break;
+        }
+
+        builder.CloseElement();
+    };
+
+    private static string GetFieldValue(Dictionary<string, object?> values, EntityFieldDefinition field)
+    {
+        if (values.TryGetValue(field.Key, out var value) && value is not null)
+        {
+            return value.ToString() ?? string.Empty;
+        }
+
+        return field.DefaultValue?.ToString() ?? string.Empty;
+    }
+
+    private bool ValidateAction(EntityActionDefinition action, Dictionary<string, object?> values)
+    {
+        foreach (var field in action.Fields ?? Array.Empty<EntityFieldDefinition>())
+        {
+            if (field.Required && string.IsNullOrWhiteSpace(GetFieldValue(values, field)))
+            {
+                _errorMessage = $"{field.Label} is required.";
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static void InitializeActionValues(EntityActionDefinition? action, Dictionary<string, object?> target, IReadOnlyDictionary<string, object?>? overrides = null)
+    {
+        target.Clear();
+
+        if (action is null)
+        {
+            return;
+        }
+
+        foreach (var field in action.Fields ?? Array.Empty<EntityFieldDefinition>())
+        {
+            if (overrides is not null && overrides.TryGetValue(field.Key, out var overrideValue))
+            {
+                target[field.Key] = overrideValue;
+            }
+            else
+            {
+                target[field.Key] = field.DefaultValue?.ToString() ?? string.Empty;
+            }
+        }
+    }
+
+    private async Task RunAsync(Func<Task> action, bool clearStatus = true)
+    {
+        _isBusy = true;
+        _errorMessage = null;
+
+        if (clearStatus)
+        {
+            _statusMessage = null;
+        }
+
+        try
+        {
+            await action();
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+        }
+        finally
+        {
+            _isBusy = false;
+            _isLoading = false;
+        }
+    }
+}

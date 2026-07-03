@@ -1,0 +1,42 @@
+@page "/"
+@inject IEntityWorkspaceRegistry Registry
+@inject IFormFactor FormFactor
+
+<PageTitle>Entity Workspace</PageTitle>
+
+<section class="hero">
+    <div>
+        <p class="eyebrow">Clean Architecture CQRS</p>
+        <h1>Entity workspace hub</h1>
+        <p class="hero-copy">
+            Browse every registered entity workspace from one menu and one metadata-driven UI shell.
+            Running on <strong>@FormFactor.GetFormFactor()</strong> for <strong>@FormFactor.GetPlatform()</strong>.
+        </p>
+    </div>
+    <div class="hero-meta">
+        <div>
+            <span class="meta-label">API</span>
+            <span class="meta-value">@ApiBaseAddressResolver.GetDefault()</span>
+        </div>
+    </div>
+</section>
+
+<section class="dashboard dashboard-overview">
+    @foreach (var descriptor in Registry.Descriptors)
+    {
+        <a class="panel overview-card" href="@GetRoute(descriptor)">
+            <div class="panel-header">
+                <div>
+                    <p class="panel-kicker">Registered entity</p>
+                    <h2>@descriptor.PluralDisplayName</h2>
+                </div>
+                <span class="entity-icon @descriptor.IconCssClass" aria-hidden="true"></span>
+            </div>
+            <p class="hero-copy">@descriptor.Description</p>
+        </a>
+    }
+</section>
+
+@code {
+    private static string GetRoute(EntityDescriptor descriptor) => $"/entities/{descriptor.Key}";
+}
