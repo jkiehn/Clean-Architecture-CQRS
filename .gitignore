@@ -482,3 +482,11 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+CleanArchitectureCQRS.Shared/obj/CleanArchitectureCQRS.Shared.csproj.nuget.dgspec.json
+CleanArchitectureCQRS.Shared/obj/CleanArchitectureCQRS.Shared.csproj.nuget.g.props
+CleanArchitectureCQRS.Shared/obj/project.assets.json
+CleanArchitectureCQRS.Shared/obj/project.nuget.cache
+CleanArchitectureCQRS.Shared.Abstractions/obj/CleanArchitectureCQRS.Shared.Abstractions.csproj.nuget.dgspec.json
+CleanArchitectureCQRS.Shared.Abstractions/obj/CleanArchitectureCQRS.Shared.Abstractions.csproj.nuget.g.props
+CleanArchitectureCQRS.Shared.Abstractions/obj/project.assets.json
+CleanArchitectureCQRS.Shared.Abstractions/obj/project.nuget.cache
