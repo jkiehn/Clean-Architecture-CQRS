@@ -22,6 +22,28 @@ public static class DescriptorDrivenWorkspaceDefinitions
             new EntityFieldDefinition("email", "Email", Required: true, Placeholder: "agent@example.com")
         });
 
+    private static readonly EntityActionDefinition CreateEmployeeAction = new(
+        "create",
+        "Create",
+        "btn btn-primary action-btn",
+        new[]
+        {
+            new EntityFieldDefinition("name", "Name", Required: true, Placeholder: "Employee name"),
+            new EntityFieldDefinition("email", "Email", Required: true, Placeholder: "employee@example.com"),
+            new EntityFieldDefinition("socialSecurityNumber", "Social Security Number", Required: true, Placeholder: "123-45-6789")
+        });
+
+    private static readonly EntityActionDefinition EditEmployeeAction = new(
+        "edit",
+        "Save changes",
+        "btn btn-dark action-btn",
+        new[]
+        {
+            new EntityFieldDefinition("name", "Name", Required: true, Placeholder: "Employee name"),
+            new EntityFieldDefinition("email", "Email", Required: true, Placeholder: "employee@example.com"),
+            new EntityFieldDefinition("socialSecurityNumber", "Social Security Number", Required: true, Placeholder: "123-45-6789")
+        });
+
     private static readonly EntityActionDefinition CreateResourceSubtypeAction = new(
         "create",
         "Create",
@@ -77,6 +99,18 @@ public static class DescriptorDrivenWorkspaceDefinitions
             25,
             CreateAgentSubtypeAction,
             EditAgentSubtypeAction,
+            "Delete"),
+        new EntityDescriptor(
+            "employees",
+            "Employee",
+            "Employees",
+            "Create, inspect, update, and remove employee agents.",
+            "bi-person-badge",
+            "Search employees by name, email, or social security number",
+            "No employees found yet. Create the first employee from the panel on the right.",
+            27,
+            CreateEmployeeAction,
+            EditEmployeeAction,
             "Delete"),
         new EntityDescriptor(
             "agents",

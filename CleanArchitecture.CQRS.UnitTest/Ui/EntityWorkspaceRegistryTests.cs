@@ -15,14 +15,16 @@ public class EntityWorkspaceRegistryTests
             new StubWorkspaceService(new EntityDescriptor("items", "Item", "Items", "Item view", "bi-box-seam", "Search items", "None", 15)),
             new StubWorkspaceService(new EntityDescriptor("customers", "Customer", "Customers", "Customer view", "bi-people-nav-menu", "Search customers", "None", 20)),
             new StubWorkspaceService(new EntityDescriptor("vendors", "Vendor", "Vendors", "Vendor view", "bi-briefcase-nav-menu", "Search vendors", "None", 25))
+            ,new StubWorkspaceService(new EntityDescriptor("employees", "Employee", "Employees", "Employee view", "bi-person-badge", "Search employees", "None", 27))
         };
 
         var registry = new EntityWorkspaceRegistry(services);
 
-        registry.Descriptors.Select(descriptor => descriptor.Key).ShouldBe(["sample-entities", "items", "customers", "vendors", "agents"]);
+        registry.Descriptors.Select(descriptor => descriptor.Key).ShouldBe(["sample-entities", "items", "customers", "vendors", "employees", "agents"]);
         registry.Get("items").Descriptor.PluralDisplayName.ShouldBe("Items");
         registry.Get("customers").Descriptor.PluralDisplayName.ShouldBe("Customers");
         registry.Get("vendors").Descriptor.PluralDisplayName.ShouldBe("Vendors");
+        registry.Get("employees").Descriptor.PluralDisplayName.ShouldBe("Employees");
     }
 
     private sealed class StubWorkspaceService : EntityWorkspaceServiceBase

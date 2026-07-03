@@ -46,6 +46,31 @@ public static class SqlSchemaInitializer
             ADD [Version] int NOT NULL CONSTRAINT [DF_Vendors_Version] DEFAULT (0);
         END
 
+        IF OBJECT_ID(N'[SampleEntity].[Employees]', N'U') IS NULL
+        BEGIN
+            CREATE TABLE [SampleEntity].[Employees]
+            (
+                [Id] uniqueidentifier NOT NULL,
+                [Name] nvarchar(max) NOT NULL,
+                [Email] nvarchar(max) NOT NULL,
+                [SocialSecurityNumber] nvarchar(max) NOT NULL,
+                [Version] int NOT NULL CONSTRAINT [DF_Employees_Version] DEFAULT (0),
+                CONSTRAINT [PK_Employees] PRIMARY KEY ([Id])
+            );
+        END
+        ELSE IF COL_LENGTH(N'[SampleEntity].[Employees]', N'Version') IS NULL
+        BEGIN
+            ALTER TABLE [SampleEntity].[Employees]
+            ADD [Version] int NOT NULL CONSTRAINT [DF_Employees_Version] DEFAULT (0);
+        END
+
+        IF OBJECT_ID(N'[SampleEntity].[Employees]', N'U') IS NOT NULL
+            AND COL_LENGTH(N'[SampleEntity].[Employees]', N'SocialSecurityNumber') IS NULL
+        BEGIN
+            ALTER TABLE [SampleEntity].[Employees]
+            ADD [SocialSecurityNumber] nvarchar(max) NOT NULL CONSTRAINT [DF_Employees_SocialSecurityNumber] DEFAULT (N'');
+        END
+
         IF OBJECT_ID(N'[SampleEntity].[Items]', N'U') IS NULL
         BEGIN
             CREATE TABLE [SampleEntity].[Items]

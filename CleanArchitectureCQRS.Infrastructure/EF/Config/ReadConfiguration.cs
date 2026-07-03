@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace CleanArchitectureCQRS.Infrastructure.EF.Config;
 
-internal sealed class ReadConfiguration : IEntityTypeConfiguration<SampleEntityReadModel>, IEntityTypeConfiguration<SampleEntityItemReadModel>, IEntityTypeConfiguration<CustomerReadModel>, IEntityTypeConfiguration<VendorReadModel>, IEntityTypeConfiguration<ItemReadModel>
+internal sealed class ReadConfiguration : IEntityTypeConfiguration<SampleEntityReadModel>, IEntityTypeConfiguration<SampleEntityItemReadModel>, IEntityTypeConfiguration<CustomerReadModel>, IEntityTypeConfiguration<VendorReadModel>, IEntityTypeConfiguration<EmployeeReadModel>, IEntityTypeConfiguration<ItemReadModel>
 {
     public void Configure(EntityTypeBuilder<SampleEntityReadModel> builder)
     {
@@ -30,6 +30,12 @@ internal sealed class ReadConfiguration : IEntityTypeConfiguration<SampleEntityR
 
     public void Configure(EntityTypeBuilder<VendorReadModel> builder)
         => ConfigureAgent(builder, "Vendors");
+
+    public void Configure(EntityTypeBuilder<EmployeeReadModel> builder)
+    {
+        ConfigureAgent(builder, "Employees");
+        builder.Property(employee => employee.SocialSecurityNumber).IsRequired();
+    }
 
     public void Configure(EntityTypeBuilder<ItemReadModel> builder)
         => ConfigureResource(builder, "Items");

@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace CleanArchitectureCQRS.Infrastructure.EF.Config;
 
-internal sealed class WriteConfiguration : IEntityTypeConfiguration<SampleEntity>, IEntityTypeConfiguration<SampleEntityItem>, IEntityTypeConfiguration<Customer>, IEntityTypeConfiguration<Vendor>, IEntityTypeConfiguration<Item>
+internal sealed class WriteConfiguration : IEntityTypeConfiguration<SampleEntity>, IEntityTypeConfiguration<SampleEntityItem>, IEntityTypeConfiguration<Customer>, IEntityTypeConfiguration<Vendor>, IEntityTypeConfiguration<Employee>, IEntityTypeConfiguration<Item>
 {
     public void Configure(EntityTypeBuilder<SampleEntity> builder)
     {
@@ -59,6 +59,16 @@ internal sealed class WriteConfiguration : IEntityTypeConfiguration<SampleEntity
 
     public void Configure(EntityTypeBuilder<Vendor> builder)
         => ConfigureAgent(builder, "Vendors");
+
+    public void Configure(EntityTypeBuilder<Employee> builder)
+    {
+        ConfigureAgent(builder, "Employees");
+
+        builder
+            .Property<string>("_socialSecurityNumber")
+            .HasColumnName("SocialSecurityNumber")
+            .IsRequired();
+    }
 
     public void Configure(EntityTypeBuilder<Item> builder)
         => ConfigureResource(builder, "Items");

@@ -53,7 +53,12 @@ public class DescriptorEntityApiServiceTests
     public void Definitions_Expose_Current_Generic_Workspaces()
     {
         DescriptorDrivenWorkspaceDefinitions.All.Select(descriptor => descriptor.Key)
-            .ShouldBe(["items", "customers", "vendors", "agents"]);
+            .ShouldBe(["items", "customers", "vendors", "employees", "agents"]);
+
+        var employeeDescriptor = DescriptorDrivenWorkspaceDefinitions.All.Single(descriptor => descriptor.Key == "employees");
+        employeeDescriptor.CreateAction.ShouldNotBeNull();
+        employeeDescriptor.CreateAction!.Fields!.Select(field => field.Key)
+            .ShouldBe(["name", "email", "socialSecurityNumber"]);
     }
 
     private static DescriptorEntityApiService CreateService(HttpMessageHandler handler)

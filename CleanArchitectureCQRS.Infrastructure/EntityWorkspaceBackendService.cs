@@ -22,6 +22,7 @@ internal sealed class EntityWorkspaceBackendService : IEntityWorkspaceBackendSer
         {
             CreateAgentSubtypeDescriptor<Customer, CustomerReadModel>("customers", "Customer"),
             CreateAgentSubtypeDescriptor<Vendor, VendorReadModel>("vendors", "Vendor"),
+            CreateEmployeeDescriptor(),
             CreateResourceSubtypeDescriptor<Item, ItemReadModel>("items", "Item"),
             CreateAgentAggregationDescriptor()
         }.ToDictionary(descriptor => descriptor.Key, StringComparer.OrdinalIgnoreCase);
@@ -77,6 +78,15 @@ internal sealed class EntityWorkspaceBackendService : IEntityWorkspaceBackendSer
             (service, id, values) => service.UpdateResourceSubtypeAsync<TEntity, TReadModel>(id, values, entityType),
             (service, id) => service.DeleteResourceSubtypeAsync<TEntity>(id, entityType));
 
+    private static EntityWorkspaceBackendDescriptor CreateEmployeeDescriptor()
+        => new(
+            "employees",
+            (service, searchPhrase) => service.SearchEmployeesAsync(searchPhrase),
+            (service, id) => service.GetEmployeeAsync(id),
+            (service, values) => service.CreateEmployeeAsync(values),
+            (service, id, values) => service.UpdateEmployeeAsync(id, values),
+            (service, id) => service.DeleteAgentSubtypeAsync<Employee>(id, "Employee"));
+
     private static EntityWorkspaceBackendDescriptor CreateAgentAggregationDescriptor()
         => new(
             "agents",
@@ -112,6 +122,33 @@ internal sealed class EntityWorkspaceBackendService : IEntityWorkspaceBackendSer
             .ToListAsync();
     }
 
+    private async Task<IReadOnlyList<EntityWorkspaceListItemDto>> SearchEmployeesAsync(string? searchPhrase)
+    {
+        var query = _readDbContext.Employees.AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(searchPhrase))
+        {
+            query = query.Where(employee =>
+                Microsoft.EntityFrameworkCore.EF.Functions.Like(employee.Name, $"%{searchPhrase}%") ||
+                Microsoft.EntityFrameworkCore.EF.Functions.Like(employee.Email, $"%{searchPhrase}%") ||
+                Microsoft.EntityFrameworkCore.EF.Functions.Like(employee.SocialSecurityNumber, $"%{searchPhrase}%"));
+        }
+
+        return await query
+            .OrderBy(employee => employee.Name)
+            .Select(employee => new EntityWorkspaceListItemDto(
+                employee.Id,
+                employee.Name,
+                employee.Email,
+                new[]
+                {
+                    new EntityWorkspacePropertyDto("Type", "Employee"),
+                    new EntityWorkspacePropertyDto("SSN", employee.SocialSecurityNumber)
+                }))
+            .AsNoTracking()
+            .ToListAsync();
+    }
+
     private async Task<EntityWorkspaceDetailDto?> GetAgentSubtypeAsync<TReadModel>(Guid id, string entityType)
         where TReadModel : AgentReadModelBase
     {
@@ -137,6 +174,36 @@ internal sealed class EntityWorkspaceBackendService : IEntityWorkspaceBackendSer
                 {
                     ["name"] = entity.Name,
                     ["email"] = entity.Email
+                },
+                Array.Empty<EntityWorkspaceCollectionSectionDto>());
+    }
+
+    private async Task<EntityWorkspaceDetailDto?> GetEmployeeAsync(Guid id)
+    {
+        var employee = await _readDbContext.Employees
+            .Where(item => item.Id == id)
+            .Select(item => new { item.Id, item.Name, item.Email, item.SocialSecurityNumber })
+            .AsNoTracking()
+            .SingleOrDefaultAsync();
+
+        return employee is null
+            ? null
+            : new EntityWorkspaceDetailDto(
+                employee.Id,
+                employee.Name,
+                employee.Email,
+                new[]
+                {
+                    new EntityWorkspacePropertyDto("Email", employee.Email),
+                    new EntityWorkspacePropertyDto("Social Security Number", employee.SocialSecurityNumber),
+                    new EntityWorkspacePropertyDto("Identifier", employee.Id.ToString()),
+                    new EntityWorkspacePropertyDto("Type", "Employee")
+                },
+                new Dictionary<string, object?>
+                {
+                    ["name"] = employee.Name,
+                    ["email"] = employee.Email,
+                    ["socialSecurityNumber"] = employee.SocialSecurityNumber
                 },
                 Array.Empty<EntityWorkspaceCollectionSectionDto>());
     }
@@ -183,6 +250,58 @@ internal sealed class EntityWorkspaceBackendService : IEntityWorkspaceBackendSer
         entity.UpdateDetails(name, email);
         await _writeDbContext.SaveChangesAsync();
         return new EntityWorkspaceOperationResultDto($"{entityType} updated.", id);
+    }
+
+    private async Task<EntityWorkspaceOperationResultDto> CreateEmployeeAsync(IReadOnlyDictionary<string, string?> values)
+    {
+        var name = GetRequiredValue(values, "name");
+        var email = GetRequiredValue(values, "email");
+        var socialSecurityNumber = GetRequiredValue(values, "socialSecurityNumber");
+
+        if (await _readDbContext.Employees.AnyAsync(employee => employee.Email == email))
+        {
+            throw new InvalidOperationException($"Employee with email '{email}' already exists.");
+        }
+
+        if (await _readDbContext.Employees.AnyAsync(employee => employee.SocialSecurityNumber == socialSecurityNumber))
+        {
+            throw new InvalidOperationException($"Employee with social security number '{socialSecurityNumber}' already exists.");
+        }
+
+        var id = Guid.NewGuid();
+        var employee = CreateEntityInstance<Employee>(id, name, email, socialSecurityNumber);
+
+        await _writeDbContext.Employees.AddAsync(employee);
+        await _writeDbContext.SaveChangesAsync();
+        return new EntityWorkspaceOperationResultDto("Employee created.", id);
+    }
+
+    private async Task<EntityWorkspaceOperationResultDto> UpdateEmployeeAsync(Guid id, IReadOnlyDictionary<string, string?> values)
+    {
+        var employee = await _writeDbContext.Employees.SingleOrDefaultAsync(item => item.Id == (AgentId)id);
+
+        if (employee is null)
+        {
+            throw new InvalidOperationException($"Employee with ID '{id}' was not found.");
+        }
+
+        var name = GetRequiredValue(values, "name");
+        var email = GetRequiredValue(values, "email");
+        var socialSecurityNumber = GetRequiredValue(values, "socialSecurityNumber");
+
+        if (await _readDbContext.Employees.AnyAsync(item => item.Email == email && item.Id != id))
+        {
+            throw new InvalidOperationException($"Employee with email '{email}' already exists.");
+        }
+
+        if (await _readDbContext.Employees.AnyAsync(item => item.SocialSecurityNumber == socialSecurityNumber && item.Id != id))
+        {
+            throw new InvalidOperationException($"Employee with social security number '{socialSecurityNumber}' already exists.");
+        }
+
+        employee.UpdateDetails(name, email, socialSecurityNumber);
+        await _writeDbContext.SaveChangesAsync();
+        return new EntityWorkspaceOperationResultDto("Employee updated.", id);
     }
 
     private async Task<EntityWorkspaceOperationResultDto> DeleteAgentSubtypeAsync<TEntity>(Guid id, string entityType)
@@ -312,9 +431,11 @@ internal sealed class EntityWorkspaceBackendService : IEntityWorkspaceBackendSer
     {
         var customers = await SearchAgentSubtypeAsync<CustomerReadModel>(searchPhrase, "Customer");
         var vendors = await SearchAgentSubtypeAsync<VendorReadModel>(searchPhrase, "Vendor");
+        var employees = await SearchEmployeesAsync(searchPhrase);
 
         return customers
             .Concat(vendors)
+            .Concat(employees)
             .OrderBy(item => item.Title)
             .ToArray();
     }
@@ -322,7 +443,8 @@ internal sealed class EntityWorkspaceBackendService : IEntityWorkspaceBackendSer
     private async Task<EntityWorkspaceDetailDto?> GetAgentAsync(Guid id)
     {
         var customer = await GetAgentSubtypeAsync<CustomerReadModel>(id, "Customer");
-        return customer ?? await GetAgentSubtypeAsync<VendorReadModel>(id, "Vendor");
+        var vendor = customer is null ? await GetAgentSubtypeAsync<VendorReadModel>(id, "Vendor") : null;
+        return vendor ?? customer ?? await GetEmployeeAsync(id);
     }
 
     private static string GetRequiredValue(IReadOnlyDictionary<string, string?> values, string key)
