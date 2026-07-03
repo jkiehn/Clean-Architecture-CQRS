@@ -27,6 +27,16 @@ public sealed class DescriptorEntityApiService : ApiServiceBase
     public Task<EntityOperationResult?> DeleteAsync(string entityKey, Guid id)
         => DeleteAndReadAsync<EntityOperationResult>($"api/entities/{entityKey}/{id}");
 
+    public Task<EntityOperationResult?> ExecuteCollectionActionAsync(string entityKey, Guid entityId, string collectionKey, string actionKey, IReadOnlyDictionary<string, object?> values)
+        => PostAndReadAsync<DescriptorEntityMutationRequest, EntityOperationResult>(
+            $"api/entities/{entityKey}/{entityId}/collections/{collectionKey}/actions/{actionKey}",
+            new DescriptorEntityMutationRequest(ToStringValues(values)));
+
+    public Task<EntityOperationResult?> ExecuteCollectionItemActionAsync(string entityKey, Guid entityId, string collectionKey, string itemKey, string actionKey)
+        => PostAndReadAsync<object, EntityOperationResult>(
+            $"api/entities/{entityKey}/{entityId}/collections/{collectionKey}/items/{Uri.EscapeDataString(itemKey)}/actions/{actionKey}",
+            new { });
+
     private static IReadOnlyDictionary<string, string?> ToStringValues(IReadOnlyDictionary<string, object?> values)
         => values.ToDictionary(pair => pair.Key, pair => pair.Value?.ToString(), StringComparer.OrdinalIgnoreCase);
 }

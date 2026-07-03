@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace CleanArchitectureCQRS.Infrastructure.EF.Config;
 
-internal sealed class ReadConfiguration : IEntityTypeConfiguration<SampleEntityReadModel>, IEntityTypeConfiguration<SampleEntityItemReadModel>, IEntityTypeConfiguration<CustomerReadModel>, IEntityTypeConfiguration<VendorReadModel>, IEntityTypeConfiguration<EmployeeReadModel>, IEntityTypeConfiguration<ItemReadModel>, IEntityTypeConfiguration<SaleReadModel>
+internal sealed class ReadConfiguration : IEntityTypeConfiguration<SampleEntityReadModel>, IEntityTypeConfiguration<SampleEntityItemReadModel>, IEntityTypeConfiguration<CustomerReadModel>, IEntityTypeConfiguration<VendorReadModel>, IEntityTypeConfiguration<EmployeeReadModel>, IEntityTypeConfiguration<ItemReadModel>, IEntityTypeConfiguration<SaleReadModel>, IEntityTypeConfiguration<SalesLineReadModel>
 {
     public void Configure(EntityTypeBuilder<SampleEntityReadModel> builder)
     {
@@ -47,6 +47,18 @@ internal sealed class ReadConfiguration : IEntityTypeConfiguration<SampleEntityR
         builder.Property(sale => sale.EmployeeId).IsRequired();
         builder.Property(sale => sale.ExternalParticipationId).IsRequired();
         builder.Property(sale => sale.CustomerId).IsRequired();
+    }
+
+    public void Configure(EntityTypeBuilder<SalesLineReadModel> builder)
+    {
+        builder.ToTable("SalesLines");
+        builder.HasKey(line => line.Id);
+        builder.Property(line => line.EventEndId).IsRequired();
+        builder.Property(line => line.ResourceEndId).IsRequired();
+        builder.Property(line => line.SaleId).IsRequired();
+        builder.Property(line => line.ItemId).IsRequired();
+        builder.Property(line => line.UnitPrice).IsRequired();
+        builder.Property(line => line.Quantity).IsRequired();
     }
 
     private static void ConfigureAgent<TAgent>(EntityTypeBuilder<TAgent> builder, string tableName) where TAgent : AgentReadModelBase

@@ -44,4 +44,26 @@ public sealed class EntityWorkspaceController : ControllerBase
     {
         return Ok(await _service.DeleteAsync(entityKey, id));
     }
+
+    [HttpPost("{id:guid}/collections/{collectionKey}/actions/{actionKey}")]
+    public async Task<ActionResult<EntityWorkspaceOperationResultDto>> ExecuteCollectionAction(
+        [FromRoute] string entityKey,
+        [FromRoute] Guid id,
+        [FromRoute] string collectionKey,
+        [FromRoute] string actionKey,
+        [FromBody] EntityWorkspaceMutationRequest request)
+    {
+        return Ok(await _service.ExecuteCollectionActionAsync(entityKey, id, collectionKey, actionKey, request.Values));
+    }
+
+    [HttpPost("{id:guid}/collections/{collectionKey}/items/{itemKey}/actions/{actionKey}")]
+    public async Task<ActionResult<EntityWorkspaceOperationResultDto>> ExecuteCollectionItemAction(
+        [FromRoute] string entityKey,
+        [FromRoute] Guid id,
+        [FromRoute] string collectionKey,
+        [FromRoute] string itemKey,
+        [FromRoute] string actionKey)
+    {
+        return Ok(await _service.ExecuteCollectionItemActionAsync(entityKey, id, collectionKey, itemKey, actionKey));
+    }
 }

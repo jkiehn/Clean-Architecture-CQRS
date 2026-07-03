@@ -12,6 +12,7 @@ internal sealed class ReadDbContext : DbContext
     public DbSet<EmployeeReadModel> Employees { get; set; }
     public DbSet<ItemReadModel> Items { get; set; }
     public DbSet<SaleReadModel> Sales { get; set; }
+    public DbSet<SalesLineReadModel> SalesLines { get; set; }
 
     public ReadDbContext(DbContextOptions<ReadDbContext> options) : base(options)
     {
@@ -29,5 +30,6 @@ internal sealed class ReadDbContext : DbContext
         modelBuilder.ApplyConfiguration<EmployeeReadModel>(configuration);
         modelBuilder.ApplyConfiguration<ItemReadModel>(configuration);
         modelBuilder.ApplyConfiguration<SaleReadModel>(configuration);
+        modelBuilder.ApplyConfiguration<SalesLineReadModel>(configuration);
     }
 }

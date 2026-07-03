@@ -21,7 +21,7 @@ public class SaleTest
     }
 
     [Fact]
-    public void UpdateDetails_Changes_When_Amount_And_Participant_Ids()
+    public void UpdateDetails_Changes_When_And_Participant_Ids()
     {
         var sale = new Sale(
             Guid.NewGuid(),
@@ -33,12 +33,27 @@ public class SaleTest
         var updatedEmployeeId = new AgentId(Guid.NewGuid());
         var updatedCustomerId = new AgentId(Guid.NewGuid());
 
-        sale.UpdateDetails(updatedWhen, updatedEmployeeId, updatedCustomerId, amount: 250m);
+        sale.UpdateDetails(updatedWhen, updatedEmployeeId, updatedCustomerId);
 
         GetFieldValue<DateTimeOffset>(sale, "_when").ShouldBe(updatedWhen);
-        GetFieldValue<decimal?>(sale, "_amount").ShouldBe(250m);
         GetFieldValue<AgentId>(sale, "_employeeId").ShouldBe(updatedEmployeeId);
         GetFieldValue<AgentId>(sale, "_customerId").ShouldBe(updatedCustomerId);
+    }
+
+    [Fact]
+    public void AddSalesLine_Recalculates_Sale_Amount()
+    {
+        var sale = new Sale(
+            Guid.NewGuid(),
+            new DateTimeOffset(2026, 7, 3, 10, 0, 0, TimeSpan.Zero),
+            Guid.NewGuid(),
+            Guid.NewGuid());
+
+        sale.AddSalesLine(Guid.NewGuid(), 10m, 2m);
+        sale.AddSalesLine(Guid.NewGuid(), 5m, 3m);
+
+        GetFieldValue<decimal?>(sale, "_amount").ShouldBe(35m);
+        sale.GetSalesLines().Count.ShouldBe(2);
     }
 
     private static T GetFieldValue<T>(object instance, string fieldName)

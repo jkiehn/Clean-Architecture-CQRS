@@ -157,6 +157,70 @@ public static class SqlSchemaInitializer
             ALTER TABLE [SampleEntity].[Sales]
             ADD [CustomerId] uniqueidentifier NOT NULL CONSTRAINT [DF_Sales_CustomerId] DEFAULT ('00000000-0000-0000-0000-000000000001');
         END
+
+        IF OBJECT_ID(N'[SampleEntity].[SalesLines]', N'U') IS NULL
+        BEGIN
+            CREATE TABLE [SampleEntity].[SalesLines]
+            (
+                [Id] uniqueidentifier NOT NULL,
+                [EventEndId] uniqueidentifier NOT NULL,
+                [ResourceEndId] uniqueidentifier NOT NULL,
+                [SaleId] uniqueidentifier NOT NULL,
+                [ItemId] uniqueidentifier NOT NULL,
+                [UnitPrice] decimal(18,2) NOT NULL,
+                [Quantity] decimal(18,2) NOT NULL,
+                [Version] int NOT NULL CONSTRAINT [DF_SalesLines_Version] DEFAULT (0),
+                CONSTRAINT [PK_SalesLines] PRIMARY KEY ([Id]),
+                CONSTRAINT [FK_SalesLines_Sales_SaleId] FOREIGN KEY ([SaleId]) REFERENCES [SampleEntity].[Sales]([Id]) ON DELETE CASCADE
+            );
+        END
+        ELSE IF COL_LENGTH(N'[SampleEntity].[SalesLines]', N'Version') IS NULL
+        BEGIN
+            ALTER TABLE [SampleEntity].[SalesLines]
+            ADD [Version] int NOT NULL CONSTRAINT [DF_SalesLines_Version] DEFAULT (0);
+        END
+
+        IF OBJECT_ID(N'[SampleEntity].[SalesLines]', N'U') IS NOT NULL
+            AND COL_LENGTH(N'[SampleEntity].[SalesLines]', N'EventEndId') IS NULL
+        BEGIN
+            ALTER TABLE [SampleEntity].[SalesLines]
+            ADD [EventEndId] uniqueidentifier NOT NULL CONSTRAINT [DF_SalesLines_EventEndId] DEFAULT (NEWID());
+        END
+
+        IF OBJECT_ID(N'[SampleEntity].[SalesLines]', N'U') IS NOT NULL
+            AND COL_LENGTH(N'[SampleEntity].[SalesLines]', N'ResourceEndId') IS NULL
+        BEGIN
+            ALTER TABLE [SampleEntity].[SalesLines]
+            ADD [ResourceEndId] uniqueidentifier NOT NULL CONSTRAINT [DF_SalesLines_ResourceEndId] DEFAULT (NEWID());
+        END
+
+        IF OBJECT_ID(N'[SampleEntity].[SalesLines]', N'U') IS NOT NULL
+            AND COL_LENGTH(N'[SampleEntity].[SalesLines]', N'SaleId') IS NULL
+        BEGIN
+            ALTER TABLE [SampleEntity].[SalesLines]
+            ADD [SaleId] uniqueidentifier NOT NULL CONSTRAINT [DF_SalesLines_SaleId] DEFAULT ('00000000-0000-0000-0000-000000000001');
+        END
+
+        IF OBJECT_ID(N'[SampleEntity].[SalesLines]', N'U') IS NOT NULL
+            AND COL_LENGTH(N'[SampleEntity].[SalesLines]', N'ItemId') IS NULL
+        BEGIN
+            ALTER TABLE [SampleEntity].[SalesLines]
+            ADD [ItemId] uniqueidentifier NOT NULL CONSTRAINT [DF_SalesLines_ItemId] DEFAULT ('00000000-0000-0000-0000-000000000001');
+        END
+
+        IF OBJECT_ID(N'[SampleEntity].[SalesLines]', N'U') IS NOT NULL
+            AND COL_LENGTH(N'[SampleEntity].[SalesLines]', N'UnitPrice') IS NULL
+        BEGIN
+            ALTER TABLE [SampleEntity].[SalesLines]
+            ADD [UnitPrice] decimal(18,2) NOT NULL CONSTRAINT [DF_SalesLines_UnitPrice] DEFAULT (0);
+        END
+
+        IF OBJECT_ID(N'[SampleEntity].[SalesLines]', N'U') IS NOT NULL
+            AND COL_LENGTH(N'[SampleEntity].[SalesLines]', N'Quantity') IS NULL
+        BEGIN
+            ALTER TABLE [SampleEntity].[SalesLines]
+            ADD [Quantity] decimal(18,2) NOT NULL CONSTRAINT [DF_SalesLines_Quantity] DEFAULT (1);
+        END
         """;
 
     public static async Task EnsureAsync(this IServiceProvider serviceProvider)

@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace CleanArchitectureCQRS.Infrastructure.EF.Config;
 
-internal sealed class WriteConfiguration : IEntityTypeConfiguration<SampleEntity>, IEntityTypeConfiguration<SampleEntityItem>, IEntityTypeConfiguration<Customer>, IEntityTypeConfiguration<Vendor>, IEntityTypeConfiguration<Employee>, IEntityTypeConfiguration<Item>, IEntityTypeConfiguration<Sale>
+internal sealed class WriteConfiguration : IEntityTypeConfiguration<SampleEntity>, IEntityTypeConfiguration<SampleEntityItem>, IEntityTypeConfiguration<Customer>, IEntityTypeConfiguration<Vendor>, IEntityTypeConfiguration<Employee>, IEntityTypeConfiguration<Item>, IEntityTypeConfiguration<Sale>, IEntityTypeConfiguration<SalesLine>
 {
     public void Configure(EntityTypeBuilder<SampleEntity> builder)
     {
@@ -100,6 +100,40 @@ internal sealed class WriteConfiguration : IEntityTypeConfiguration<SampleEntity
             .HasConversion(id => id.Value, id => new AgentId(id))
             .HasColumnName("CustomerId")
             .IsRequired();
+
+        builder
+            .HasMany(typeof(SalesLine), "_salesLines")
+            .WithOne()
+            .HasForeignKey("_saleId")
+            .IsRequired()
+            .OnDelete(DeleteBehavior.Cascade);
+    }
+
+    public void Configure(EntityTypeBuilder<SalesLine> builder)
+    {
+        ConfigureStockflow(builder, "SalesLines");
+
+        builder
+            .Property<EventId>("_saleId")
+            .HasConversion(id => id.Value, id => new EventId(id))
+            .HasColumnName("SaleId")
+            .IsRequired();
+
+        builder
+            .Property<ResourceId>("_itemId")
+            .HasConversion(id => id.Value, id => new ResourceId(id))
+            .HasColumnName("ItemId")
+            .IsRequired();
+
+        builder
+            .Property<decimal>("_unitPrice")
+            .HasColumnName("UnitPrice")
+            .IsRequired();
+
+        builder
+            .Property<decimal>("_quantity")
+            .HasColumnName("Quantity")
+            .IsRequired();
     }
 
     private static void ConfigureAgent<TAgent>(EntityTypeBuilder<TAgent> builder, string tableName) where TAgent : Agent
@@ -192,6 +226,29 @@ internal sealed class WriteConfiguration : IEntityTypeConfiguration<SampleEntity
             .Property<EventId>("_eventId")
             .HasConversion(id => id.Value, id => new EventId(id))
             .HasColumnName("EventId")
+            .IsRequired();
+
+        builder.ToTable(tableName);
+    }
+
+    private static void ConfigureStockflow<TStockflow>(EntityTypeBuilder<TStockflow> builder, string tableName) where TStockflow : Stockflow
+    {
+        builder.HasKey(stockflow => stockflow.Id);
+
+        builder
+            .Property(stockflow => stockflow.Id)
+            .HasConversion(id => id.Value, id => new StockflowId(id));
+
+        builder
+            .Property<StockflowEndId>("_eventEndId")
+            .HasConversion(id => id.Value, id => new StockflowEndId(id))
+            .HasColumnName("EventEndId")
+            .IsRequired();
+
+        builder
+            .Property<StockflowEndId>("_resourceEndId")
+            .HasConversion(id => id.Value, id => new StockflowEndId(id))
+            .HasColumnName("ResourceEndId")
             .IsRequired();
 
         builder.ToTable(tableName);

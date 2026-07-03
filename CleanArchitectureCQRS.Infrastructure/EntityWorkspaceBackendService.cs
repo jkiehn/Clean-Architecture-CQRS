@@ -48,6 +48,14 @@ internal sealed class EntityWorkspaceBackendService : IEntityWorkspaceBackendSer
         => GetDescriptor(entityKey).DeleteAsync?.Invoke(this, id)
            ?? throw new InvalidOperationException($"{entityKey} does not support deletion.");
 
+    public Task<EntityWorkspaceOperationResultDto> ExecuteCollectionActionAsync(string entityKey, Guid id, string collectionKey, string actionKey, IReadOnlyDictionary<string, string?> values)
+        => GetDescriptor(entityKey).ExecuteCollectionActionAsync?.Invoke(this, id, collectionKey, actionKey, values)
+           ?? throw new InvalidOperationException($"{entityKey} does not support collection actions.");
+
+    public Task<EntityWorkspaceOperationResultDto> ExecuteCollectionItemActionAsync(string entityKey, Guid id, string collectionKey, string itemKey, string actionKey)
+        => GetDescriptor(entityKey).ExecuteCollectionItemActionAsync?.Invoke(this, id, collectionKey, itemKey, actionKey)
+           ?? throw new InvalidOperationException($"{entityKey} does not support collection item actions.");
+
     private EntityWorkspaceBackendDescriptor GetDescriptor(string entityKey)
     {
         if (_descriptors.TryGetValue(entityKey, out var descriptor))
@@ -105,7 +113,9 @@ internal sealed class EntityWorkspaceBackendService : IEntityWorkspaceBackendSer
             (service, id) => service.GetSaleAsync(id),
             (service, values) => service.CreateSaleAsync(values),
             (service, id, values) => service.UpdateSaleAsync(id, values),
-            (service, id) => service.DeleteSaleAsync(id));
+            (service, id) => service.DeleteSaleAsync(id),
+            (service, id, collectionKey, actionKey, values) => service.ExecuteSaleCollectionActionAsync(id, collectionKey, actionKey, values),
+            (service, id, collectionKey, itemKey, actionKey) => service.ExecuteSaleCollectionItemActionAsync(id, collectionKey, itemKey, actionKey));
 
     private async Task<IReadOnlyList<EntityWorkspaceListItemDto>> SearchAgentSubtypeAsync<TReadModel>(string? searchPhrase, string entityType)
         where TReadModel : AgentReadModelBase
@@ -529,23 +539,24 @@ internal sealed class EntityWorkspaceBackendService : IEntityWorkspaceBackendSer
                 {
                     ["when"] = sale.When.ToString("O"),
                     ["endWhen"] = sale.EndWhen?.ToString("O") ?? string.Empty,
-                    ["amount"] = sale.Amount?.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
                     ["employee"] = sale.EmployeeEmail,
                     ["customer"] = sale.CustomerEmail
                 },
-                Array.Empty<EntityWorkspaceCollectionSectionDto>());
+                new[]
+                {
+                    await BuildSalesLineCollectionAsync(sale.Id)
+                });
     }
 
     private async Task<EntityWorkspaceOperationResultDto> CreateSaleAsync(IReadOnlyDictionary<string, string?> values)
     {
         var when = ParseRequiredDateTimeOffset(values, "when");
         var endWhen = ParseOptionalDateTimeOffset(values, "endWhen");
-        var amount = ParseOptionalDecimal(values, "amount");
         var employee = await ResolveEmployeeAsync(GetRequiredValue(values, "employee"));
         var customer = await ResolveCustomerAsync(GetRequiredValue(values, "customer"));
 
         var id = Guid.NewGuid();
-        var sale = new Sale(id, when, employee.Id, customer.Id, endWhen, amount);
+        var sale = new Sale(id, when, employee.Id, customer.Id, endWhen);
 
         await _writeDbContext.Sales.AddAsync(sale);
         await _writeDbContext.SaveChangesAsync();
@@ -563,11 +574,10 @@ internal sealed class EntityWorkspaceBackendService : IEntityWorkspaceBackendSer
 
         var when = ParseRequiredDateTimeOffset(values, "when");
         var endWhen = ParseOptionalDateTimeOffset(values, "endWhen");
-        var amount = ParseOptionalDecimal(values, "amount");
         var employee = await ResolveEmployeeAsync(GetRequiredValue(values, "employee"));
         var customer = await ResolveCustomerAsync(GetRequiredValue(values, "customer"));
 
-        sale.UpdateDetails(when, employee.Id, customer.Id, endWhen, amount);
+        sale.UpdateDetails(when, employee.Id, customer.Id, endWhen);
         await _writeDbContext.SaveChangesAsync();
         return new EntityWorkspaceOperationResultDto("Sale updated.", id);
     }
@@ -584,6 +594,126 @@ internal sealed class EntityWorkspaceBackendService : IEntityWorkspaceBackendSer
         _writeDbContext.Sales.Remove(sale);
         await _writeDbContext.SaveChangesAsync();
         return new EntityWorkspaceOperationResultDto("Sale deleted.");
+    }
+
+    private async Task<EntityWorkspaceCollectionSectionDto> BuildSalesLineCollectionAsync(Guid saleId)
+    {
+        var lineData =
+            await (
+                from line in _readDbContext.SalesLines
+                join item in _readDbContext.Items on line.ItemId equals item.Id
+                where line.SaleId == saleId
+                orderby item.Name, line.Id
+                select new
+                {
+                    line.Id,
+                    item.Name,
+                    line.Quantity,
+                    line.UnitPrice
+                })
+            .AsNoTracking()
+            .ToListAsync();
+
+        var lines = lineData
+            .Select(line => new EntityWorkspaceCollectionItemDto(
+                line.Id.ToString(),
+                line.Name,
+                $"Qty {FormatNumber(line.Quantity)} @ {FormatAmount(line.UnitPrice)}",
+                new[]
+                {
+                    new EntityWorkspacePropertyDto("Line Total", FormatAmount(line.UnitPrice * line.Quantity)),
+                    new EntityWorkspacePropertyDto("Identifier", line.Id.ToString())
+                },
+                new[]
+                {
+                    new EntityWorkspaceCollectionItemActionDto("remove", "Remove", "btn btn-sm btn-outline-danger")
+                }))
+            .ToList();
+
+        return new EntityWorkspaceCollectionSectionDto(
+            "salesLines",
+            "Sales Lines",
+            "No sales lines yet. Add the first line below.",
+            lines,
+            new EntityWorkspaceActionDefinitionDto(
+                "add",
+                "Add line",
+                "btn btn-primary action-btn",
+                new[]
+                {
+                    new EntityWorkspaceFieldDefinitionDto(
+                        "item",
+                        "Item",
+                        Required: true,
+                        Placeholder: "Item name or ID",
+                        Lookup: new EntityWorkspaceLookupDefinitionDto("items")),
+                    new EntityWorkspaceFieldDefinitionDto(
+                        "quantity",
+                        "Quantity",
+                        EntityWorkspaceFieldKindDto.Number,
+                        Required: true,
+                        Placeholder: "1",
+                        DefaultValue: 1m),
+                    new EntityWorkspaceFieldDefinitionDto(
+                        "unitPrice",
+                        "Unit Price",
+                        EntityWorkspaceFieldKindDto.Number,
+                        Required: true,
+                        Placeholder: "100.00")
+                }));
+    }
+
+    private async Task<EntityWorkspaceOperationResultDto> ExecuteSaleCollectionActionAsync(Guid saleId, string collectionKey, string actionKey, IReadOnlyDictionary<string, string?> values)
+    {
+        if (!string.Equals(collectionKey, "salesLines", StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(actionKey, "add", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException($"Unsupported sale collection action '{collectionKey}/{actionKey}'.");
+        }
+
+        var sale = await _writeDbContext.Sales
+            .Include("_salesLines")
+            .SingleOrDefaultAsync(item => item.Id == (EventId)saleId);
+
+        if (sale is null)
+        {
+            throw new InvalidOperationException($"Sale with ID '{saleId}' was not found.");
+        }
+
+        var item = await ResolveItemAsync(GetRequiredValue(values, "item"));
+        var quantity = ParseRequiredDecimal(values, "quantity");
+        var unitPrice = ParseRequiredDecimal(values, "unitPrice");
+        var line = sale.AddSalesLine(item.Id, unitPrice, quantity);
+
+        await _writeDbContext.SaveChangesAsync();
+        return new EntityWorkspaceOperationResultDto("Sales line added.", line.Id.Value);
+    }
+
+    private async Task<EntityWorkspaceOperationResultDto> ExecuteSaleCollectionItemActionAsync(Guid saleId, string collectionKey, string itemKey, string actionKey)
+    {
+        if (!string.Equals(collectionKey, "salesLines", StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(actionKey, "remove", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException($"Unsupported sale collection item action '{collectionKey}/{actionKey}'.");
+        }
+
+        if (!Guid.TryParse(itemKey, out var lineId))
+        {
+            throw new InvalidOperationException($"Sales line key '{itemKey}' is invalid.");
+        }
+
+        var sale = await _writeDbContext.Sales
+            .Include("_salesLines")
+            .SingleOrDefaultAsync(item => item.Id == (EventId)saleId);
+
+        if (sale is null)
+        {
+            throw new InvalidOperationException($"Sale with ID '{saleId}' was not found.");
+        }
+
+        sale.RemoveSalesLine(new StockflowId(lineId));
+        await _writeDbContext.SaveChangesAsync();
+        return new EntityWorkspaceOperationResultDto("Sales line removed.");
     }
 
     private async Task<IReadOnlyList<EntityWorkspaceListItemDto>> SearchAgentsAsync(string? searchPhrase)
@@ -673,6 +803,33 @@ internal sealed class EntityWorkspaceBackendService : IEntityWorkspaceBackendSer
         return (new AgentId(match.Id), match.Name, match.Email);
     }
 
+    private async Task<(ResourceId Id, string Name)> ResolveItemAsync(string value)
+    {
+        var search = value.Trim();
+        var hasId = Guid.TryParse(search, out var id);
+
+        var matches = await _readDbContext.Items
+            .Where(item =>
+                (hasId && item.Id == id) ||
+                item.Name == search)
+            .Select(item => new { item.Id, item.Name })
+            .AsNoTracking()
+            .ToListAsync();
+
+        if (matches.Count == 0)
+        {
+            throw new InvalidOperationException($"Item '{search}' was not found.");
+        }
+
+        if (matches.Count > 1)
+        {
+            throw new InvalidOperationException($"Item reference '{search}' is ambiguous. Use the lookup or item ID.");
+        }
+
+        var match = matches[0];
+        return (new ResourceId(match.Id), match.Name);
+    }
+
     private static DateTimeOffset ParseRequiredDateTimeOffset(IReadOnlyDictionary<string, string?> values, string key)
     {
         var value = GetRequiredValue(values, key);
@@ -716,6 +873,10 @@ internal sealed class EntityWorkspaceBackendService : IEntityWorkspaceBackendSer
         throw new InvalidOperationException($"Field '{key}' must be a valid number.");
     }
 
+    private static decimal ParseRequiredDecimal(IReadOnlyDictionary<string, string?> values, string key)
+        => ParseOptionalDecimal(values, key)
+           ?? throw new InvalidOperationException($"Field '{key}' is required.");
+
     private static string FormatDateTime(DateTimeOffset value)
         => value.ToString("yyyy-MM-dd HH:mm zzz");
 
@@ -724,6 +885,9 @@ internal sealed class EntityWorkspaceBackendService : IEntityWorkspaceBackendSer
 
     private static string FormatAmount(decimal? amount)
         => amount?.ToString("0.##", CultureInfo.InvariantCulture) ?? "None";
+
+    private static string FormatNumber(decimal value)
+        => value.ToString("0.##", CultureInfo.InvariantCulture);
 
     private static bool TryParseDateTimeExpression(string value, out DateTimeOffset result)
     {
@@ -854,6 +1018,18 @@ internal sealed class EntityWorkspaceBackendService : IEntityWorkspaceBackendSer
                 convertedArgument = new ParticipationId(guid);
                 return true;
             }
+
+            if (targetType == typeof(StockflowId))
+            {
+                convertedArgument = new StockflowId(guid);
+                return true;
+            }
+
+            if (targetType == typeof(StockflowEndId))
+            {
+                convertedArgument = new StockflowEndId(guid);
+                return true;
+            }
         }
 
         if (argument is string value)
@@ -888,4 +1064,6 @@ internal sealed record EntityWorkspaceBackendDescriptor(
     Func<EntityWorkspaceBackendService, Guid, Task<EntityWorkspaceDetailDto?>> GetAsync,
     Func<EntityWorkspaceBackendService, IReadOnlyDictionary<string, string?>, Task<EntityWorkspaceOperationResultDto>>? CreateAsync,
     Func<EntityWorkspaceBackendService, Guid, IReadOnlyDictionary<string, string?>, Task<EntityWorkspaceOperationResultDto>>? UpdateAsync,
-    Func<EntityWorkspaceBackendService, Guid, Task<EntityWorkspaceOperationResultDto>>? DeleteAsync);
+    Func<EntityWorkspaceBackendService, Guid, Task<EntityWorkspaceOperationResultDto>>? DeleteAsync,
+    Func<EntityWorkspaceBackendService, Guid, string, string, IReadOnlyDictionary<string, string?>, Task<EntityWorkspaceOperationResultDto>>? ExecuteCollectionActionAsync = null,
+    Func<EntityWorkspaceBackendService, Guid, string, string, string, Task<EntityWorkspaceOperationResultDto>>? ExecuteCollectionItemActionAsync = null);

@@ -50,4 +50,12 @@ public sealed class DescriptorDrivenWorkspaceService : EntityWorkspaceServiceBas
         return await _service.DeleteAsync(Descriptor.Key, id)
             ?? new EntityOperationResult($"{Descriptor.DisplayName} deleted.");
     }
+
+    public override async Task<EntityOperationResult> ExecuteCollectionActionAsync(Guid entityId, string collectionKey, string actionKey, IReadOnlyDictionary<string, object?> values)
+        => await _service.ExecuteCollectionActionAsync(Descriptor.Key, entityId, collectionKey, actionKey, values)
+           ?? new EntityOperationResult($"{Descriptor.DisplayName} collection action executed.");
+
+    public override async Task<EntityOperationResult> ExecuteCollectionItemActionAsync(Guid entityId, string collectionKey, string itemKey, string actionKey)
+        => await _service.ExecuteCollectionItemActionAsync(Descriptor.Key, entityId, collectionKey, itemKey, actionKey)
+           ?? new EntityOperationResult($"{Descriptor.DisplayName} item action executed.");
 }

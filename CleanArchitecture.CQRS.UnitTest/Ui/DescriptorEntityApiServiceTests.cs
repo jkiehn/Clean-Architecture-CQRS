@@ -63,7 +63,7 @@ public class DescriptorEntityApiServiceTests
         var saleDescriptor = DescriptorDrivenWorkspaceDefinitions.All.Single(descriptor => descriptor.Key == "sales");
         saleDescriptor.CreateAction.ShouldNotBeNull();
         saleDescriptor.CreateAction!.Fields!.Select(field => field.Key)
-            .ShouldBe(["when", "endWhen", "amount", "employee", "customer"]);
+            .ShouldBe(["when", "endWhen", "employee", "customer"]);
     }
 
     private static DescriptorEntityApiService CreateService(HttpMessageHandler handler)
