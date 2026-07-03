@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using System.Reflection;
 
 namespace CleanArchitectureCQRS.Shared.Services;
 
@@ -14,7 +15,8 @@ internal sealed class AppInitializer : IHostedService
     public async Task StartAsync(CancellationToken cancellationToken)
     {
         var dbContextTypes = AppDomain.CurrentDomain.GetAssemblies()
-            .SelectMany(a => a.GetTypes())
+            .Where(IsApplicationAssembly)
+            .SelectMany(GetLoadableTypes)
             .Where(a => typeof(DbContext).IsAssignableFrom(a) && !a.IsInterface && a != typeof(DbContext));
 
         using var scope = _serviceProvider.CreateScope();
@@ -31,5 +33,20 @@ internal sealed class AppInitializer : IHostedService
     }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+    private static bool IsApplicationAssembly(Assembly assembly)
+        => assembly.GetName().Name?.StartsWith("CleanArchitectureCQRS", StringComparison.Ordinal) == true;
+
+    private static IEnumerable<Type> GetLoadableTypes(Assembly assembly)
+    {
+        try
+        {
+            return assembly.GetTypes();
+        }
+        catch (ReflectionTypeLoadException exception)
+        {
+            return exception.Types.Where(type => type is not null)!;
+        }
+    }
 }
 

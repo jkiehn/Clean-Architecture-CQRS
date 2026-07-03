@@ -1,5 +1,6 @@
 using CleanArchitectureCQRS.Application;
 using CleanArchitectureCQRS.Infrastructure;
+using CleanArchitectureCQRS.Infrastructure.EF;
 using CleanArchitectureCQRS.Shared;
 using Serilog;
 
@@ -22,6 +23,8 @@ builder.Services.AddSwaggerGen();
 builder.Host.UseSerilog();
 
 var app = builder.Build();
+
+await app.Services.EnsureAsync();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

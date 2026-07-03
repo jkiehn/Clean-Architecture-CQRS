@@ -1,7 +1,9 @@
 using CleanArchitectureCQRS.Domain.Factories;
 using CleanArchitectureCQRS.Domain.Policies;
 using CleanArchitectureCQRS.Domain.ValueObjects;
+using CleanArchitectureCQRS.Infrastructure.EF;
 using CleanArchitectureCQRS.Infrastructure.EF.Contexts;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Shouldly;
@@ -56,5 +58,21 @@ public class WriteDbContextTests
             var itemCount = await assertContext.Set<SampleEntityItem>().CountAsync();
             itemCount.ShouldBe(0);
         }
+    }
+
+    [Fact]
+    public async Task SqlSchemaInitializer_Should_Be_A_NoOp_For_NonSqlServer_Providers()
+    {
+        await using var connection = new SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+
+        var services = new ServiceCollection();
+        services.AddDbContext<WriteDbContext>(options => options.UseSqlite(connection));
+
+        await using var provider = services.BuildServiceProvider();
+
+        var exception = await Record.ExceptionAsync(() => provider.EnsureAsync());
+
+        exception.ShouldBeNull();
     }
 }

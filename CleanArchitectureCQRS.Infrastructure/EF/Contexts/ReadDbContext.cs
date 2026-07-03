@@ -20,6 +20,7 @@ internal sealed class ReadDbContext : DbContext
 
         var configuration = new ReadConfiguration();
         modelBuilder.ApplyConfiguration<SampleEntityReadModel>(configuration);
+        modelBuilder.ApplyConfiguration<SampleEntityItemReadModel>(configuration);
         modelBuilder.ApplyConfiguration<CustomerReadModel>(configuration);
         modelBuilder.ApplyConfiguration<VendorReadModel>(configuration);
     }

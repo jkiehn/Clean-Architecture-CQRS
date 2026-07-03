@@ -6,13 +6,15 @@ namespace CleanArchitectureCQRS.Shared.Commands;
 
     public static class Extensions
     {
-        public static IServiceCollection AddCommands(this IServiceCollection services)
+        public static IServiceCollection AddCommands(this IServiceCollection services, params Assembly[] assemblies)
         {
-            var assembly = Assembly.GetCallingAssembly();
+            var scanAssemblies = assemblies is { Length: > 0 }
+                ? assemblies
+                : new[] { Assembly.GetCallingAssembly() };
 
             services.AddSingleton<ICommandDispatcher, InMemoryCommandDispatcher>();
-            services.Scan(s => s.FromAssemblies(assembly)
-            .AddClasses(c => c.AssignableTo(typeof(ICommandHandler<>)))
+            services.Scan(s => s.FromAssemblies(scanAssemblies)
+            .AddClasses(c => c.AssignableTo(typeof(ICommandHandler<>)), publicOnly: false)
             .AsImplementedInterfaces()
             .WithScopedLifetime());
             return services;

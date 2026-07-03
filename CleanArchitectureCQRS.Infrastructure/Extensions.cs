@@ -13,7 +13,7 @@ public static class Extensions
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddSQLDB(configuration);
-        services.AddQueries();
+        services.AddQueries(typeof(Extensions).Assembly);
         services.AddSerilog(configuration);
         //services.AddSingleton<IExternalService, ExternalService>();
         services.TryDecorate(typeof(ICommandHandler<>), typeof(LoggingCommandHandlerDecorator<>));
