@@ -1,6 +1,7 @@
 using CleanArchitectureCQRS.Infrastructure.EF;
 using CleanArchitectureCQRS.Infrastructure.Logging;
 using CleanArchitectureCQRS.Infrastructure.Services;
+using CleanArchitectureCQRS.Application.Services;
 using CleanArchitectureCQRS.Shared.Abstractions.Commands;
 using CleanArchitectureCQRS.Shared.Queries;
 using Microsoft.Extensions.Configuration;
@@ -15,6 +16,7 @@ public static class Extensions
         services.AddSQLDB(configuration);
         services.AddQueries(typeof(Extensions).Assembly);
         services.AddSerilog(configuration);
+        services.AddScoped<IEntityWorkspaceBackendService, EntityWorkspaceBackendService>();
         //services.AddSingleton<IExternalService, ExternalService>();
         services.TryDecorate(typeof(ICommandHandler<>), typeof(LoggingCommandHandlerDecorator<>));
 

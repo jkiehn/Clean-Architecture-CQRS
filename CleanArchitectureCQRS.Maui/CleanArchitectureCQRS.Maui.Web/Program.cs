@@ -13,31 +13,20 @@ builder.Services.AddHttpClient<SampleEntityService>(client =>
     var apiBaseUrl = builder.Configuration["ApiBaseUrl"] ?? ApiBaseAddressResolver.DefaultApiBaseAddress;
     client.BaseAddress = new Uri(apiBaseUrl);
 });
-builder.Services.AddHttpClient<CustomerService>(client =>
-{
-    var apiBaseUrl = builder.Configuration["ApiBaseUrl"] ?? ApiBaseAddressResolver.DefaultApiBaseAddress;
-    client.BaseAddress = new Uri(apiBaseUrl);
-});
-builder.Services.AddHttpClient<ItemService>(client =>
-{
-    var apiBaseUrl = builder.Configuration["ApiBaseUrl"] ?? ApiBaseAddressResolver.DefaultApiBaseAddress;
-    client.BaseAddress = new Uri(apiBaseUrl);
-});
-builder.Services.AddHttpClient<VendorService>(client =>
-{
-    var apiBaseUrl = builder.Configuration["ApiBaseUrl"] ?? ApiBaseAddressResolver.DefaultApiBaseAddress;
-    client.BaseAddress = new Uri(apiBaseUrl);
-});
-builder.Services.AddHttpClient<AgentService>(client =>
+builder.Services.AddHttpClient<DescriptorEntityApiService>(client =>
 {
     var apiBaseUrl = builder.Configuration["ApiBaseUrl"] ?? ApiBaseAddressResolver.DefaultApiBaseAddress;
     client.BaseAddress = new Uri(apiBaseUrl);
 });
 builder.Services.AddScoped<IEntityWorkspaceService, SampleEntityWorkspaceService>();
-builder.Services.AddScoped<IEntityWorkspaceService, ItemWorkspaceService>();
-builder.Services.AddScoped<IEntityWorkspaceService, CustomerWorkspaceService>();
-builder.Services.AddScoped<IEntityWorkspaceService, VendorWorkspaceService>();
-builder.Services.AddScoped<IEntityWorkspaceService, AgentWorkspaceService>();
+foreach (var descriptor in DescriptorDrivenWorkspaceDefinitions.All)
+{
+    var entityDescriptor = descriptor;
+    builder.Services.AddScoped<IEntityWorkspaceService>(sp =>
+        new DescriptorDrivenWorkspaceService(
+            sp.GetRequiredService<DescriptorEntityApiService>(),
+            entityDescriptor));
+}
 builder.Services.AddScoped<IEntityWorkspaceRegistry, EntityWorkspaceRegistry>();
 
 var app = builder.Build();

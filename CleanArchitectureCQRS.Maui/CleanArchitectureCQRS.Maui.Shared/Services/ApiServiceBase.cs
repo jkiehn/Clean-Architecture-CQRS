@@ -35,6 +35,27 @@ public abstract class ApiServiceBase
         await EnsureSuccessAsync(response);
     }
 
+    protected async Task<T?> PostAndReadAsync<TPayload, T>(string uri, TPayload payload)
+    {
+        var response = await _httpClient.PostAsJsonAsync(uri, payload);
+        await EnsureSuccessAsync(response);
+        return await response.Content.ReadFromJsonAsync<T>();
+    }
+
+    protected async Task<T?> PutAndReadAsync<TPayload, T>(string uri, TPayload payload)
+    {
+        var response = await _httpClient.PutAsJsonAsync(uri, payload);
+        await EnsureSuccessAsync(response);
+        return await response.Content.ReadFromJsonAsync<T>();
+    }
+
+    protected async Task<T?> DeleteAndReadAsync<T>(string uri)
+    {
+        var response = await _httpClient.DeleteAsync(uri);
+        await EnsureSuccessAsync(response);
+        return await response.Content.ReadFromJsonAsync<T>();
+    }
+
     protected async Task DeleteAsync<T>(string uri, T payload)
     {
         var response = await _httpClient.SendAsync(new HttpRequestMessage(HttpMethod.Delete, uri)

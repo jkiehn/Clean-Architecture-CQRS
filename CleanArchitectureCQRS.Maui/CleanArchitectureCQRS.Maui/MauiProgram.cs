@@ -22,27 +22,19 @@ public static class MauiProgram
         {
             client.BaseAddress = new Uri(ApiBaseAddressResolver.GetDefault());
         });
-        builder.Services.AddHttpClient<CustomerService>(client =>
-        {
-            client.BaseAddress = new Uri(ApiBaseAddressResolver.GetDefault());
-        });
-        builder.Services.AddHttpClient<ItemService>(client =>
-        {
-            client.BaseAddress = new Uri(ApiBaseAddressResolver.GetDefault());
-        });
-        builder.Services.AddHttpClient<VendorService>(client =>
-        {
-            client.BaseAddress = new Uri(ApiBaseAddressResolver.GetDefault());
-        });
-        builder.Services.AddHttpClient<AgentService>(client =>
+        builder.Services.AddHttpClient<DescriptorEntityApiService>(client =>
         {
             client.BaseAddress = new Uri(ApiBaseAddressResolver.GetDefault());
         });
         builder.Services.AddScoped<IEntityWorkspaceService, SampleEntityWorkspaceService>();
-        builder.Services.AddScoped<IEntityWorkspaceService, ItemWorkspaceService>();
-        builder.Services.AddScoped<IEntityWorkspaceService, CustomerWorkspaceService>();
-        builder.Services.AddScoped<IEntityWorkspaceService, VendorWorkspaceService>();
-        builder.Services.AddScoped<IEntityWorkspaceService, AgentWorkspaceService>();
+        foreach (var descriptor in DescriptorDrivenWorkspaceDefinitions.All)
+        {
+            var entityDescriptor = descriptor;
+            builder.Services.AddScoped<IEntityWorkspaceService>(sp =>
+                new DescriptorDrivenWorkspaceService(
+                    sp.GetRequiredService<DescriptorEntityApiService>(),
+                    entityDescriptor));
+        }
         builder.Services.AddScoped<IEntityWorkspaceRegistry, EntityWorkspaceRegistry>();
         builder.Services.AddMauiBlazorWebView();
 
