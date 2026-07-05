@@ -163,7 +163,7 @@ public static class SqlSchemaInitializer
             CREATE TABLE [SampleEntity].[SalesLines]
             (
                 [Id] uniqueidentifier NOT NULL,
-                [EventEndId] uniqueidentifier NOT NULL,
+                [OccurrentEndId] uniqueidentifier NOT NULL,
                 [ResourceEndId] uniqueidentifier NOT NULL,
                 [SaleId] uniqueidentifier NOT NULL,
                 [ItemId] uniqueidentifier NOT NULL,
@@ -181,10 +181,10 @@ public static class SqlSchemaInitializer
         END
 
         IF OBJECT_ID(N'[SampleEntity].[SalesLines]', N'U') IS NOT NULL
-            AND COL_LENGTH(N'[SampleEntity].[SalesLines]', N'EventEndId') IS NULL
+            AND COL_LENGTH(N'[SampleEntity].[SalesLines]', N'OccurrentEndId') IS NULL
         BEGIN
             ALTER TABLE [SampleEntity].[SalesLines]
-            ADD [EventEndId] uniqueidentifier NOT NULL CONSTRAINT [DF_SalesLines_EventEndId] DEFAULT (NEWID());
+            ADD [OccurrentEndId] uniqueidentifier NOT NULL CONSTRAINT [DF_SalesLines_OccurrentEndId] DEFAULT (NEWID());
         END
 
         IF OBJECT_ID(N'[SampleEntity].[SalesLines]', N'U') IS NOT NULL
@@ -220,6 +220,141 @@ public static class SqlSchemaInitializer
         BEGIN
             ALTER TABLE [SampleEntity].[SalesLines]
             ADD [Quantity] decimal(18,2) NOT NULL CONSTRAINT [DF_SalesLines_Quantity] DEFAULT (1);
+        END
+
+        IF OBJECT_ID(N'[SampleEntity].[SalesOrders]', N'U') IS NULL
+        BEGIN
+            CREATE TABLE [SampleEntity].[SalesOrders]
+            (
+                [Id] uniqueidentifier NOT NULL,
+                [When] datetimeoffset NOT NULL,
+                [EndWhen] datetimeoffset NULL,
+                [Amount] decimal(18,2) NULL,
+                [InternalParticipationId] uniqueidentifier NOT NULL,
+                [EmployeeId] uniqueidentifier NOT NULL,
+                [ExternalParticipationId] uniqueidentifier NOT NULL,
+                [CustomerId] uniqueidentifier NOT NULL,
+                [Version] int NOT NULL CONSTRAINT [DF_SalesOrders_Version] DEFAULT (0),
+                CONSTRAINT [PK_SalesOrders] PRIMARY KEY ([Id])
+            );
+        END
+        ELSE IF COL_LENGTH(N'[SampleEntity].[SalesOrders]', N'Version') IS NULL
+        BEGIN
+            ALTER TABLE [SampleEntity].[SalesOrders]
+            ADD [Version] int NOT NULL CONSTRAINT [DF_SalesOrders_Version] DEFAULT (0);
+        END
+
+        IF OBJECT_ID(N'[SampleEntity].[SalesOrders]', N'U') IS NOT NULL
+            AND COL_LENGTH(N'[SampleEntity].[SalesOrders]', N'When') IS NULL
+        BEGIN
+            ALTER TABLE [SampleEntity].[SalesOrders]
+            ADD [When] datetimeoffset NOT NULL CONSTRAINT [DF_SalesOrders_When] DEFAULT (SYSDATETIMEOFFSET());
+        END
+
+        IF OBJECT_ID(N'[SampleEntity].[SalesOrders]', N'U') IS NOT NULL
+            AND COL_LENGTH(N'[SampleEntity].[SalesOrders]', N'EndWhen') IS NULL
+        BEGIN
+            ALTER TABLE [SampleEntity].[SalesOrders]
+            ADD [EndWhen] datetimeoffset NULL;
+        END
+
+        IF OBJECT_ID(N'[SampleEntity].[SalesOrders]', N'U') IS NOT NULL
+            AND COL_LENGTH(N'[SampleEntity].[SalesOrders]', N'Amount') IS NULL
+        BEGIN
+            ALTER TABLE [SampleEntity].[SalesOrders]
+            ADD [Amount] decimal(18,2) NULL;
+        END
+
+        IF OBJECT_ID(N'[SampleEntity].[SalesOrders]', N'U') IS NOT NULL
+            AND COL_LENGTH(N'[SampleEntity].[SalesOrders]', N'InternalParticipationId') IS NULL
+        BEGIN
+            ALTER TABLE [SampleEntity].[SalesOrders]
+            ADD [InternalParticipationId] uniqueidentifier NOT NULL CONSTRAINT [DF_SalesOrders_InternalParticipationId] DEFAULT (NEWID());
+        END
+
+        IF OBJECT_ID(N'[SampleEntity].[SalesOrders]', N'U') IS NOT NULL
+            AND COL_LENGTH(N'[SampleEntity].[SalesOrders]', N'EmployeeId') IS NULL
+        BEGIN
+            ALTER TABLE [SampleEntity].[SalesOrders]
+            ADD [EmployeeId] uniqueidentifier NOT NULL CONSTRAINT [DF_SalesOrders_EmployeeId] DEFAULT ('00000000-0000-0000-0000-000000000001');
+        END
+
+        IF OBJECT_ID(N'[SampleEntity].[SalesOrders]', N'U') IS NOT NULL
+            AND COL_LENGTH(N'[SampleEntity].[SalesOrders]', N'ExternalParticipationId') IS NULL
+        BEGIN
+            ALTER TABLE [SampleEntity].[SalesOrders]
+            ADD [ExternalParticipationId] uniqueidentifier NOT NULL CONSTRAINT [DF_SalesOrders_ExternalParticipationId] DEFAULT (NEWID());
+        END
+
+        IF OBJECT_ID(N'[SampleEntity].[SalesOrders]', N'U') IS NOT NULL
+            AND COL_LENGTH(N'[SampleEntity].[SalesOrders]', N'CustomerId') IS NULL
+        BEGIN
+            ALTER TABLE [SampleEntity].[SalesOrders]
+            ADD [CustomerId] uniqueidentifier NOT NULL CONSTRAINT [DF_SalesOrders_CustomerId] DEFAULT ('00000000-0000-0000-0000-000000000001');
+        END
+
+        IF OBJECT_ID(N'[SampleEntity].[SalesOrderLines]', N'U') IS NULL
+        BEGIN
+            CREATE TABLE [SampleEntity].[SalesOrderLines]
+            (
+                [Id] uniqueidentifier NOT NULL,
+                [OccurrentEndId] uniqueidentifier NOT NULL,
+                [ResourceEndId] uniqueidentifier NOT NULL,
+                [SalesOrderId] uniqueidentifier NOT NULL,
+                [ItemId] uniqueidentifier NOT NULL,
+                [UnitPrice] decimal(18,2) NOT NULL,
+                [Quantity] decimal(18,2) NOT NULL,
+                [Version] int NOT NULL CONSTRAINT [DF_SalesOrderLines_Version] DEFAULT (0),
+                CONSTRAINT [PK_SalesOrderLines] PRIMARY KEY ([Id]),
+                CONSTRAINT [FK_SalesOrderLines_SalesOrders_SalesOrderId] FOREIGN KEY ([SalesOrderId]) REFERENCES [SampleEntity].[SalesOrders]([Id]) ON DELETE CASCADE
+            );
+        END
+        ELSE IF COL_LENGTH(N'[SampleEntity].[SalesOrderLines]', N'Version') IS NULL
+        BEGIN
+            ALTER TABLE [SampleEntity].[SalesOrderLines]
+            ADD [Version] int NOT NULL CONSTRAINT [DF_SalesOrderLines_Version] DEFAULT (0);
+        END
+
+        IF OBJECT_ID(N'[SampleEntity].[SalesOrderLines]', N'U') IS NOT NULL
+            AND COL_LENGTH(N'[SampleEntity].[SalesOrderLines]', N'OccurrentEndId') IS NULL
+        BEGIN
+            ALTER TABLE [SampleEntity].[SalesOrderLines]
+            ADD [OccurrentEndId] uniqueidentifier NOT NULL CONSTRAINT [DF_SalesOrderLines_OccurrentEndId] DEFAULT (NEWID());
+        END
+
+        IF OBJECT_ID(N'[SampleEntity].[SalesOrderLines]', N'U') IS NOT NULL
+            AND COL_LENGTH(N'[SampleEntity].[SalesOrderLines]', N'ResourceEndId') IS NULL
+        BEGIN
+            ALTER TABLE [SampleEntity].[SalesOrderLines]
+            ADD [ResourceEndId] uniqueidentifier NOT NULL CONSTRAINT [DF_SalesOrderLines_ResourceEndId] DEFAULT (NEWID());
+        END
+
+        IF OBJECT_ID(N'[SampleEntity].[SalesOrderLines]', N'U') IS NOT NULL
+            AND COL_LENGTH(N'[SampleEntity].[SalesOrderLines]', N'SalesOrderId') IS NULL
+        BEGIN
+            ALTER TABLE [SampleEntity].[SalesOrderLines]
+            ADD [SalesOrderId] uniqueidentifier NOT NULL CONSTRAINT [DF_SalesOrderLines_SalesOrderId] DEFAULT ('00000000-0000-0000-0000-000000000001');
+        END
+
+        IF OBJECT_ID(N'[SampleEntity].[SalesOrderLines]', N'U') IS NOT NULL
+            AND COL_LENGTH(N'[SampleEntity].[SalesOrderLines]', N'ItemId') IS NULL
+        BEGIN
+            ALTER TABLE [SampleEntity].[SalesOrderLines]
+            ADD [ItemId] uniqueidentifier NOT NULL CONSTRAINT [DF_SalesOrderLines_ItemId] DEFAULT ('00000000-0000-0000-0000-000000000001');
+        END
+
+        IF OBJECT_ID(N'[SampleEntity].[SalesOrderLines]', N'U') IS NOT NULL
+            AND COL_LENGTH(N'[SampleEntity].[SalesOrderLines]', N'UnitPrice') IS NULL
+        BEGIN
+            ALTER TABLE [SampleEntity].[SalesOrderLines]
+            ADD [UnitPrice] decimal(18,2) NOT NULL CONSTRAINT [DF_SalesOrderLines_UnitPrice] DEFAULT (0);
+        END
+
+        IF OBJECT_ID(N'[SampleEntity].[SalesOrderLines]', N'U') IS NOT NULL
+            AND COL_LENGTH(N'[SampleEntity].[SalesOrderLines]', N'Quantity') IS NULL
+        BEGIN
+            ALTER TABLE [SampleEntity].[SalesOrderLines]
+            ADD [Quantity] decimal(18,2) NOT NULL CONSTRAINT [DF_SalesOrderLines_Quantity] DEFAULT (1);
         END
         """;
 

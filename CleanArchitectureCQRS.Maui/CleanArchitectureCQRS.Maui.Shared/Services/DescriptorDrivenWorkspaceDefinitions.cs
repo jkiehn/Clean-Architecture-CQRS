@@ -86,6 +86,30 @@ public static class DescriptorDrivenWorkspaceDefinitions
             new EntityFieldDefinition("customer", "Customer", Required: true, Placeholder: "Customer email, name, or id", Lookup: new EntityLookupDefinition("customers", ValueSource: EntityLookupValueSource.Subtitle))
         });
 
+    private static readonly EntityActionDefinition CreateSalesOrderAction = new(
+        "create",
+        "Create",
+        "btn btn-primary action-btn",
+        new[]
+        {
+            new EntityFieldDefinition("when", "When", EntityFieldKind.DateTime, Required: true, Placeholder: "N, T, +1d, or 2026-07-03T14:30:00+00:00"),
+            new EntityFieldDefinition("endWhen", "End When", EntityFieldKind.DateTime, Placeholder: "N, T, +1d, or 2026-07-03T15:00:00+00:00"),
+            new EntityFieldDefinition("employee", "Employee", Required: true, Placeholder: "Employee email, name, id, or SSN", Lookup: new EntityLookupDefinition("employees", ValueSource: EntityLookupValueSource.Subtitle)),
+            new EntityFieldDefinition("customer", "Customer", Required: true, Placeholder: "Customer email, name, or id", Lookup: new EntityLookupDefinition("customers", ValueSource: EntityLookupValueSource.Subtitle))
+        });
+
+    private static readonly EntityActionDefinition EditSalesOrderAction = new(
+        "edit",
+        "Save changes",
+        "btn btn-dark action-btn",
+        new[]
+        {
+            new EntityFieldDefinition("when", "When", EntityFieldKind.DateTime, Required: true, Placeholder: "N, T, +1d, or 2026-07-03T14:30:00+00:00"),
+            new EntityFieldDefinition("endWhen", "End When", EntityFieldKind.DateTime, Placeholder: "N, T, +1d, or 2026-07-03T15:00:00+00:00"),
+            new EntityFieldDefinition("employee", "Employee", Required: true, Placeholder: "Employee email, name, id, or SSN", Lookup: new EntityLookupDefinition("employees", ValueSource: EntityLookupValueSource.Subtitle)),
+            new EntityFieldDefinition("customer", "Customer", Required: true, Placeholder: "Customer email, name, or id", Lookup: new EntityLookupDefinition("customers", ValueSource: EntityLookupValueSource.Subtitle))
+        });
+
     public static IReadOnlyList<EntityDescriptor> All { get; } = new[]
     {
         new EntityDescriptor(
@@ -147,6 +171,18 @@ public static class DescriptorDrivenWorkspaceDefinitions
             28,
             CreateSaleAction,
             EditSaleAction,
+            "Delete"),
+        new EntityDescriptor(
+            "sales-orders",
+            "Sales Order",
+            "Sales Orders",
+            "Create, inspect, update, and remove sales order commitments.",
+            "bi-receipt-cutoff",
+            "Search sales orders by employee, customer, or amount",
+            "No sales orders found yet. Create the first sales order from the panel on the right.",
+            29,
+            CreateSalesOrderAction,
+            EditSalesOrderAction,
             "Delete"),
         new EntityDescriptor(
             "agents",

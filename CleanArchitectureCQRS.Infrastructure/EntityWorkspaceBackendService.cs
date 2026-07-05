@@ -26,6 +26,7 @@ internal sealed class EntityWorkspaceBackendService : IEntityWorkspaceBackendSer
             CreateEmployeeDescriptor(),
             CreateResourceSubtypeDescriptor<Item, ItemReadModel>("items", "Item"),
             CreateSaleDescriptor(),
+            CreateSalesOrderDescriptor(),
             CreateAgentAggregationDescriptor()
         }.ToDictionary(descriptor => descriptor.Key, StringComparer.OrdinalIgnoreCase);
     }
@@ -116,6 +117,17 @@ internal sealed class EntityWorkspaceBackendService : IEntityWorkspaceBackendSer
             (service, id) => service.DeleteSaleAsync(id),
             (service, id, collectionKey, actionKey, values) => service.ExecuteSaleCollectionActionAsync(id, collectionKey, actionKey, values),
             (service, id, collectionKey, itemKey, actionKey) => service.ExecuteSaleCollectionItemActionAsync(id, collectionKey, itemKey, actionKey));
+
+    private static EntityWorkspaceBackendDescriptor CreateSalesOrderDescriptor()
+        => new(
+            "sales-orders",
+            (service, searchPhrase) => service.SearchSalesOrdersAsync(searchPhrase),
+            (service, id) => service.GetSalesOrderAsync(id),
+            (service, values) => service.CreateSalesOrderAsync(values),
+            (service, id, values) => service.UpdateSalesOrderAsync(id, values),
+            (service, id) => service.DeleteSalesOrderAsync(id),
+            (service, id, collectionKey, actionKey, values) => service.ExecuteSalesOrderCollectionActionAsync(id, collectionKey, actionKey, values),
+            (service, id, collectionKey, itemKey, actionKey) => service.ExecuteSalesOrderCollectionItemActionAsync(id, collectionKey, itemKey, actionKey));
 
     private async Task<IReadOnlyList<EntityWorkspaceListItemDto>> SearchAgentSubtypeAsync<TReadModel>(string? searchPhrase, string entityType)
         where TReadModel : AgentReadModelBase
@@ -716,6 +728,274 @@ internal sealed class EntityWorkspaceBackendService : IEntityWorkspaceBackendSer
         return new EntityWorkspaceOperationResultDto("Sales line removed.");
     }
 
+    private async Task<IReadOnlyList<EntityWorkspaceListItemDto>> SearchSalesOrdersAsync(string? searchPhrase)
+    {
+        var search = searchPhrase?.Trim();
+        var hasAmountFilter = decimal.TryParse(search, out var parsedAmount);
+
+        var query =
+            from salesOrder in _readDbContext.SalesOrders
+            join employee in _readDbContext.Employees on salesOrder.EmployeeId equals employee.Id
+            join customer in _readDbContext.Customers on salesOrder.CustomerId equals customer.Id
+            select new
+            {
+                salesOrder.Id,
+                salesOrder.When,
+                salesOrder.Amount,
+                EmployeeName = employee.Name,
+                EmployeeEmail = employee.Email,
+                CustomerName = customer.Name,
+                CustomerEmail = customer.Email
+            };
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            query = query.Where(item =>
+                Microsoft.EntityFrameworkCore.EF.Functions.Like(item.EmployeeName, $"%{search}%") ||
+                Microsoft.EntityFrameworkCore.EF.Functions.Like(item.EmployeeEmail, $"%{search}%") ||
+                Microsoft.EntityFrameworkCore.EF.Functions.Like(item.CustomerName, $"%{search}%") ||
+                Microsoft.EntityFrameworkCore.EF.Functions.Like(item.CustomerEmail, $"%{search}%") ||
+                (hasAmountFilter && item.Amount == parsedAmount));
+        }
+
+        return await query
+            .OrderByDescending(item => item.When)
+            .Select(item => new EntityWorkspaceListItemDto(
+                item.Id,
+                $"Sales order {FormatDateTime(item.When)}",
+                $"{item.EmployeeName} -> {item.CustomerName}",
+                new[]
+                {
+                    new EntityWorkspacePropertyDto("Type", "Sales Order"),
+                    new EntityWorkspacePropertyDto("Amount", FormatAmount(item.Amount))
+                }))
+            .AsNoTracking()
+            .ToListAsync();
+    }
+
+    private async Task<EntityWorkspaceDetailDto?> GetSalesOrderAsync(Guid id)
+    {
+        var salesOrder =
+            await (
+                from entity in _readDbContext.SalesOrders
+                join employee in _readDbContext.Employees on entity.EmployeeId equals employee.Id
+                join customer in _readDbContext.Customers on entity.CustomerId equals customer.Id
+                where entity.Id == id
+                select new
+                {
+                    entity.Id,
+                    entity.When,
+                    entity.EndWhen,
+                    entity.Amount,
+                    entity.InternalParticipationId,
+                    entity.ExternalParticipationId,
+                    EmployeeName = employee.Name,
+                    EmployeeEmail = employee.Email,
+                    CustomerName = customer.Name,
+                    CustomerEmail = customer.Email
+                })
+            .AsNoTracking()
+            .SingleOrDefaultAsync();
+
+        return salesOrder is null
+            ? null
+            : new EntityWorkspaceDetailDto(
+                salesOrder.Id,
+                $"Sales order {FormatDateTime(salesOrder.When)}",
+                $"{salesOrder.EmployeeName} -> {salesOrder.CustomerName}",
+                new[]
+                {
+                    new EntityWorkspacePropertyDto("When", FormatDateTime(salesOrder.When)),
+                    new EntityWorkspacePropertyDto("End When", FormatOptionalDateTime(salesOrder.EndWhen)),
+                    new EntityWorkspacePropertyDto("Amount", FormatAmount(salesOrder.Amount)),
+                    new EntityWorkspacePropertyDto("Employee", $"{salesOrder.EmployeeName} ({salesOrder.EmployeeEmail})"),
+                    new EntityWorkspacePropertyDto("Customer", $"{salesOrder.CustomerName} ({salesOrder.CustomerEmail})"),
+                    new EntityWorkspacePropertyDto("Internal Participation", salesOrder.InternalParticipationId.ToString()),
+                    new EntityWorkspacePropertyDto("External Participation", salesOrder.ExternalParticipationId.ToString()),
+                    new EntityWorkspacePropertyDto("Identifier", salesOrder.Id.ToString()),
+                    new EntityWorkspacePropertyDto("Type", "Sales Order")
+                },
+                new Dictionary<string, object?>
+                {
+                    ["when"] = salesOrder.When.ToString("O"),
+                    ["endWhen"] = salesOrder.EndWhen?.ToString("O") ?? string.Empty,
+                    ["employee"] = salesOrder.EmployeeEmail,
+                    ["customer"] = salesOrder.CustomerEmail
+                },
+                new[]
+                {
+                    await BuildSalesOrderLineCollectionAsync(salesOrder.Id)
+                });
+    }
+
+    private async Task<EntityWorkspaceOperationResultDto> CreateSalesOrderAsync(IReadOnlyDictionary<string, string?> values)
+    {
+        var when = ParseRequiredDateTimeOffset(values, "when");
+        var endWhen = ParseOptionalDateTimeOffset(values, "endWhen");
+        var employee = await ResolveEmployeeAsync(GetRequiredValue(values, "employee"));
+        var customer = await ResolveCustomerAsync(GetRequiredValue(values, "customer"));
+
+        var id = Guid.NewGuid();
+        var salesOrder = new SalesOrder(id, when, employee.Id, customer.Id, endWhen);
+
+        await _writeDbContext.SalesOrders.AddAsync(salesOrder);
+        await _writeDbContext.SaveChangesAsync();
+        return new EntityWorkspaceOperationResultDto("Sales order created.", id);
+    }
+
+    private async Task<EntityWorkspaceOperationResultDto> UpdateSalesOrderAsync(Guid id, IReadOnlyDictionary<string, string?> values)
+    {
+        var salesOrder = await _writeDbContext.SalesOrders.SingleOrDefaultAsync(item => item.Id == (CommitmentId)id);
+
+        if (salesOrder is null)
+        {
+            throw new InvalidOperationException($"Sales order with ID '{id}' was not found.");
+        }
+
+        var when = ParseRequiredDateTimeOffset(values, "when");
+        var endWhen = ParseOptionalDateTimeOffset(values, "endWhen");
+        var employee = await ResolveEmployeeAsync(GetRequiredValue(values, "employee"));
+        var customer = await ResolveCustomerAsync(GetRequiredValue(values, "customer"));
+
+        salesOrder.UpdateDetails(when, employee.Id, customer.Id, endWhen);
+        await _writeDbContext.SaveChangesAsync();
+        return new EntityWorkspaceOperationResultDto("Sales order updated.", id);
+    }
+
+    private async Task<EntityWorkspaceOperationResultDto> DeleteSalesOrderAsync(Guid id)
+    {
+        var salesOrder = await _writeDbContext.SalesOrders.SingleOrDefaultAsync(item => item.Id == (CommitmentId)id);
+
+        if (salesOrder is null)
+        {
+            throw new InvalidOperationException($"Sales order with ID '{id}' was not found.");
+        }
+
+        _writeDbContext.SalesOrders.Remove(salesOrder);
+        await _writeDbContext.SaveChangesAsync();
+        return new EntityWorkspaceOperationResultDto("Sales order deleted.");
+    }
+
+    private async Task<EntityWorkspaceCollectionSectionDto> BuildSalesOrderLineCollectionAsync(Guid salesOrderId)
+    {
+        var lineData =
+            await (
+                from line in _readDbContext.SalesOrderLines
+                join item in _readDbContext.Items on line.ItemId equals item.Id
+                where line.SalesOrderId == salesOrderId
+                orderby item.Name, line.Id
+                select new
+                {
+                    line.Id,
+                    item.Name,
+                    line.Quantity,
+                    line.UnitPrice
+                })
+            .AsNoTracking()
+            .ToListAsync();
+
+        var lines = lineData
+            .Select(line => new EntityWorkspaceCollectionItemDto(
+                line.Id.ToString(),
+                line.Name,
+                $"Qty {FormatNumber(line.Quantity)} @ {FormatAmount(line.UnitPrice)}",
+                new[]
+                {
+                    new EntityWorkspacePropertyDto("Line Total", FormatAmount(line.UnitPrice * line.Quantity)),
+                    new EntityWorkspacePropertyDto("Identifier", line.Id.ToString())
+                },
+                new[]
+                {
+                    new EntityWorkspaceCollectionItemActionDto("remove", "Remove", "btn btn-sm btn-outline-danger")
+                }))
+            .ToList();
+
+        return new EntityWorkspaceCollectionSectionDto(
+            "salesOrderLines",
+            "Sales Order Lines",
+            "No sales order lines yet. Add the first line below.",
+            lines,
+            new EntityWorkspaceActionDefinitionDto(
+                "add",
+                "Add line",
+                "btn btn-primary action-btn",
+                new[]
+                {
+                    new EntityWorkspaceFieldDefinitionDto(
+                        "item",
+                        "Item",
+                        Required: true,
+                        Placeholder: "Item name or ID",
+                        Lookup: new EntityWorkspaceLookupDefinitionDto("items")),
+                    new EntityWorkspaceFieldDefinitionDto(
+                        "quantity",
+                        "Quantity",
+                        EntityWorkspaceFieldKindDto.Number,
+                        Required: true,
+                        Placeholder: "1",
+                        DefaultValue: 1m),
+                    new EntityWorkspaceFieldDefinitionDto(
+                        "unitPrice",
+                        "Unit Price",
+                        EntityWorkspaceFieldKindDto.Number,
+                        Required: true,
+                        Placeholder: "100.00")
+                }));
+    }
+
+    private async Task<EntityWorkspaceOperationResultDto> ExecuteSalesOrderCollectionActionAsync(Guid salesOrderId, string collectionKey, string actionKey, IReadOnlyDictionary<string, string?> values)
+    {
+        if (!string.Equals(collectionKey, "salesOrderLines", StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(actionKey, "add", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException($"Unsupported sales order collection action '{collectionKey}/{actionKey}'.");
+        }
+
+        var salesOrder = await _writeDbContext.SalesOrders
+            .Include("_salesOrderLines")
+            .SingleOrDefaultAsync(item => item.Id == (CommitmentId)salesOrderId);
+
+        if (salesOrder is null)
+        {
+            throw new InvalidOperationException($"Sales order with ID '{salesOrderId}' was not found.");
+        }
+
+        var item = await ResolveItemAsync(GetRequiredValue(values, "item"));
+        var quantity = ParseRequiredDecimal(values, "quantity");
+        var unitPrice = ParseRequiredDecimal(values, "unitPrice");
+        var line = salesOrder.AddSalesOrderLine(item.Id, unitPrice, quantity);
+
+        await _writeDbContext.SaveChangesAsync();
+        return new EntityWorkspaceOperationResultDto("Sales order line added.", line.Id.Value);
+    }
+
+    private async Task<EntityWorkspaceOperationResultDto> ExecuteSalesOrderCollectionItemActionAsync(Guid salesOrderId, string collectionKey, string itemKey, string actionKey)
+    {
+        if (!string.Equals(collectionKey, "salesOrderLines", StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(actionKey, "remove", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException($"Unsupported sales order collection item action '{collectionKey}/{actionKey}'.");
+        }
+
+        if (!Guid.TryParse(itemKey, out var lineId))
+        {
+            throw new InvalidOperationException($"Sales order line key '{itemKey}' is invalid.");
+        }
+
+        var salesOrder = await _writeDbContext.SalesOrders
+            .Include("_salesOrderLines")
+            .SingleOrDefaultAsync(item => item.Id == (CommitmentId)salesOrderId);
+
+        if (salesOrder is null)
+        {
+            throw new InvalidOperationException($"Sales order with ID '{salesOrderId}' was not found.");
+        }
+
+        salesOrder.RemoveSalesOrderLine(new StockflowId(lineId));
+        await _writeDbContext.SaveChangesAsync();
+        return new EntityWorkspaceOperationResultDto("Sales order line removed.");
+    }
+
     private async Task<IReadOnlyList<EntityWorkspaceListItemDto>> SearchAgentsAsync(string? searchPhrase)
     {
         var customers = await SearchAgentSubtypeAsync<CustomerReadModel>(searchPhrase, "Customer");
@@ -1010,6 +1290,12 @@ internal sealed class EntityWorkspaceBackendService : IEntityWorkspaceBackendSer
             if (targetType == typeof(EventId))
             {
                 convertedArgument = new EventId(guid);
+                return true;
+            }
+
+            if (targetType == typeof(CommitmentId))
+            {
+                convertedArgument = new CommitmentId(guid);
                 return true;
             }
 

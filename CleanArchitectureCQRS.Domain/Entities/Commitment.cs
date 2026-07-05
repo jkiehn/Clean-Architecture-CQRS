@@ -3,21 +3,20 @@ using CleanArchitectureCQRS.Domain.ValueObjects;
 
 namespace CleanArchitectureCQRS.Domain.Entities;
 
-public abstract class Event : Occurrent<EventId>
+public abstract class Commitment : Occurrent<CommitmentId>
 {
-    protected Event()
+    protected Commitment()
     {
     }
 
-    protected Event(EventId id, DateTimeOffset when, DateTimeOffset? endWhen = null, decimal? amount = null)
+    protected Commitment(CommitmentId id, DateTimeOffset when, DateTimeOffset? endWhen = null, decimal? amount = null)
+        : base(id, when, endWhen, amount)
     {
-        Id = id;
-        UpdateTemporalDetails(when, endWhen, amount);
     }
 
     protected new void UpdateTemporalDetails(DateTimeOffset when, DateTimeOffset? endWhen = null, decimal? amount = null)
         => base.UpdateTemporalDetails(when, endWhen, amount);
 
     protected override Exception CreateInvalidException()
-        => new EventInvalidException();
+        => new CommitmentInvalidException();
 }

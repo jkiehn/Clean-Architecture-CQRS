@@ -5,22 +5,22 @@ namespace CleanArchitectureCQRS.Domain.Entities;
 
 public abstract class Stockflow : AggregateRoot<StockflowId>
 {
-    private StockflowEndId _eventEndId = default!;
+    private StockflowEndId _occurrentEndId = default!;
     private StockflowEndId _resourceEndId = default!;
 
     protected Stockflow()
     {
     }
 
-    protected Stockflow(StockflowId id, StockflowEndId eventEndId, StockflowEndId resourceEndId)
+    protected Stockflow(StockflowId id, StockflowEndId occurrentEndId, StockflowEndId resourceEndId)
     {
         Id = id;
-        UpdateRequiredEnds(eventEndId, resourceEndId);
+        UpdateRequiredEnds(occurrentEndId, resourceEndId);
     }
 
-    protected void UpdateRequiredEnds(StockflowEndId eventEndId, StockflowEndId resourceEndId)
+    protected void UpdateRequiredEnds(StockflowEndId occurrentEndId, StockflowEndId resourceEndId)
     {
-        _eventEndId = eventEndId;
+        _occurrentEndId = occurrentEndId;
         _resourceEndId = resourceEndId;
     }
 }

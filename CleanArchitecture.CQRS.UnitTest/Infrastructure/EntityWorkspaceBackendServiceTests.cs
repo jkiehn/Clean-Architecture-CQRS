@@ -443,4 +443,142 @@ public class EntityWorkspaceBackendServiceTests
         await using var assertReadContext = new ReadDbContext(readOptions);
         (await assertReadContext.SalesLines.CountAsync()).ShouldBe(0);
     }
+
+    [Fact]
+    public async Task CreateAsync_Creates_SalesOrder_With_Employee_And_Customer_Participations()
+    {
+        await using var connection = new SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+
+        var writeOptions = new DbContextOptionsBuilder<WriteDbContext>()
+            .UseSqlite(connection)
+            .Options;
+        var readOptions = new DbContextOptionsBuilder<ReadDbContext>()
+            .UseSqlite(connection)
+            .Options;
+
+        var employeeId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+
+        await using (var arrangeContext = new WriteDbContext(writeOptions))
+        {
+            await arrangeContext.Database.EnsureCreatedAsync();
+            arrangeContext.Employees.Add(new Employee(employeeId, "Emma", "emma@example.com", "444-44-4444"));
+            arrangeContext.Customers.Add(new Customer(customerId, "Contoso", "buyer@contoso.example"));
+            await arrangeContext.SaveChangesAsync();
+        }
+
+        await using var readContext = new ReadDbContext(readOptions);
+        await using var writeContext = new WriteDbContext(writeOptions);
+        IEntityWorkspaceBackendService service = new EntityWorkspaceBackendService(readContext, writeContext);
+
+        var result = await service.CreateAsync("sales-orders", new Dictionary<string, string?>
+        {
+            ["when"] = "2026-07-03T10:00:00+00:00",
+            ["employee"] = "emma@example.com",
+            ["customer"] = "buyer@contoso.example"
+        });
+
+        result.EntityId.ShouldNotBeNull();
+        result.Message.ShouldBe("Sales order created.");
+
+        await using var assertReadContext = new ReadDbContext(readOptions);
+        var storedSalesOrder = await assertReadContext.SalesOrders.SingleAsync();
+        storedSalesOrder.EmployeeId.ShouldBe(employeeId);
+        storedSalesOrder.CustomerId.ShouldBe(customerId);
+        storedSalesOrder.Amount.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task GetAsync_Returns_SalesOrder_Detail_With_Employee_And_Customer()
+    {
+        await using var connection = new SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+
+        var writeOptions = new DbContextOptionsBuilder<WriteDbContext>()
+            .UseSqlite(connection)
+            .Options;
+        var readOptions = new DbContextOptionsBuilder<ReadDbContext>()
+            .UseSqlite(connection)
+            .Options;
+
+        var salesOrderId = Guid.NewGuid();
+        var employeeId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+
+        await using (var arrangeContext = new WriteDbContext(writeOptions))
+        {
+            await arrangeContext.Database.EnsureCreatedAsync();
+            arrangeContext.Employees.Add(new Employee(employeeId, "Emma", "emma@example.com", "444-44-4444"));
+            arrangeContext.Customers.Add(new Customer(customerId, "Contoso", "buyer@contoso.example"));
+            arrangeContext.Items.Add(new Item(Guid.NewGuid(), "Widget"));
+            arrangeContext.SalesOrders.Add(new SalesOrder(salesOrderId, new DateTimeOffset(2026, 7, 3, 10, 0, 0, TimeSpan.Zero), employeeId, customerId, amount: 125.50m));
+            await arrangeContext.SaveChangesAsync();
+        }
+
+        await using var readContext = new ReadDbContext(readOptions);
+        await using var writeContext = new WriteDbContext(writeOptions);
+        IEntityWorkspaceBackendService service = new EntityWorkspaceBackendService(readContext, writeContext);
+
+        var detail = await service.GetAsync("sales-orders", salesOrderId);
+
+        detail.ShouldNotBeNull();
+        detail!.Summary.ShouldContain(property => property.Label == "Employee" && property.Value.Contains("emma@example.com"));
+        detail.Summary.ShouldContain(property => property.Label == "Customer" && property.Value.Contains("buyer@contoso.example"));
+        detail.EditValues["employee"].ShouldBe("emma@example.com");
+        detail.EditValues["customer"].ShouldBe("buyer@contoso.example");
+        detail.Collections.Single().Key.ShouldBe("salesOrderLines");
+    }
+
+    [Fact]
+    public async Task ExecuteCollectionActionAsync_Adds_SalesOrderLine_And_Recalculates_SalesOrder_Amount()
+    {
+        await using var connection = new SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+
+        var writeOptions = new DbContextOptionsBuilder<WriteDbContext>()
+            .UseSqlite(connection)
+            .Options;
+        var readOptions = new DbContextOptionsBuilder<ReadDbContext>()
+            .UseSqlite(connection)
+            .Options;
+
+        var salesOrderId = Guid.NewGuid();
+        var employeeId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+
+        await using (var arrangeContext = new WriteDbContext(writeOptions))
+        {
+            await arrangeContext.Database.EnsureCreatedAsync();
+            arrangeContext.Employees.Add(new Employee(employeeId, "Emma", "emma@example.com", "444-44-4444"));
+            arrangeContext.Customers.Add(new Customer(customerId, "Contoso", "buyer@contoso.example"));
+            arrangeContext.Items.Add(new Item(itemId, "Widget"));
+            arrangeContext.SalesOrders.Add(new SalesOrder(salesOrderId, new DateTimeOffset(2026, 7, 3, 10, 0, 0, TimeSpan.Zero), employeeId, customerId));
+            await arrangeContext.SaveChangesAsync();
+        }
+
+        await using var readContext = new ReadDbContext(readOptions);
+        await using var writeContext = new WriteDbContext(writeOptions);
+        IEntityWorkspaceBackendService service = new EntityWorkspaceBackendService(readContext, writeContext);
+
+        var result = await service.ExecuteCollectionActionAsync("sales-orders", salesOrderId, "salesOrderLines", "add", new Dictionary<string, string?>
+        {
+            ["item"] = itemId.ToString(),
+            ["quantity"] = "2",
+            ["unitPrice"] = "12.5"
+        });
+
+        result.Message.ShouldBe("Sales order line added.");
+
+        await using var assertReadContext = new ReadDbContext(readOptions);
+        var storedSalesOrder = await assertReadContext.SalesOrders.SingleAsync();
+        var storedLine = await assertReadContext.SalesOrderLines.SingleAsync();
+
+        storedSalesOrder.Amount.ShouldBe(25m);
+        storedLine.SalesOrderId.ShouldBe(salesOrderId);
+        storedLine.ItemId.ShouldBe(itemId);
+        storedLine.Quantity.ShouldBe(2m);
+        storedLine.UnitPrice.ShouldBe(12.5m);
+    }
 }

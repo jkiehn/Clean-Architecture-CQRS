@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace CleanArchitectureCQRS.Infrastructure.EF.Config;
 
-internal sealed class WriteConfiguration : IEntityTypeConfiguration<SampleEntity>, IEntityTypeConfiguration<SampleEntityItem>, IEntityTypeConfiguration<Customer>, IEntityTypeConfiguration<Vendor>, IEntityTypeConfiguration<Employee>, IEntityTypeConfiguration<Item>, IEntityTypeConfiguration<Sale>, IEntityTypeConfiguration<SalesLine>
+internal sealed class WriteConfiguration : IEntityTypeConfiguration<SampleEntity>, IEntityTypeConfiguration<SampleEntityItem>, IEntityTypeConfiguration<Customer>, IEntityTypeConfiguration<Vendor>, IEntityTypeConfiguration<Employee>, IEntityTypeConfiguration<Item>, IEntityTypeConfiguration<Sale>, IEntityTypeConfiguration<SalesLine>, IEntityTypeConfiguration<SalesOrder>, IEntityTypeConfiguration<SalesOrderLine>
 {
     public void Configure(EntityTypeBuilder<SampleEntity> builder)
     {
@@ -136,6 +136,69 @@ internal sealed class WriteConfiguration : IEntityTypeConfiguration<SampleEntity
             .IsRequired();
     }
 
+    public void Configure(EntityTypeBuilder<SalesOrder> builder)
+    {
+        ConfigureCommitment(builder, "SalesOrders");
+
+        builder
+            .Property<ParticipationId>("_internalParticipationId")
+            .HasConversion(id => id.Value, id => new ParticipationId(id))
+            .HasColumnName("InternalParticipationId")
+            .IsRequired();
+
+        builder
+            .Property<AgentId>("_employeeId")
+            .HasConversion(id => id.Value, id => new AgentId(id))
+            .HasColumnName("EmployeeId")
+            .IsRequired();
+
+        builder
+            .Property<ParticipationId>("_externalParticipationId")
+            .HasConversion(id => id.Value, id => new ParticipationId(id))
+            .HasColumnName("ExternalParticipationId")
+            .IsRequired();
+
+        builder
+            .Property<AgentId>("_customerId")
+            .HasConversion(id => id.Value, id => new AgentId(id))
+            .HasColumnName("CustomerId")
+            .IsRequired();
+
+        builder
+            .HasMany(typeof(SalesOrderLine), "_salesOrderLines")
+            .WithOne()
+            .HasForeignKey("_salesOrderId")
+            .IsRequired()
+            .OnDelete(DeleteBehavior.Cascade);
+    }
+
+    public void Configure(EntityTypeBuilder<SalesOrderLine> builder)
+    {
+        ConfigureStockflow(builder, "SalesOrderLines");
+
+        builder
+            .Property<CommitmentId>("_salesOrderId")
+            .HasConversion(id => id.Value, id => new CommitmentId(id))
+            .HasColumnName("SalesOrderId")
+            .IsRequired();
+
+        builder
+            .Property<ResourceId>("_itemId")
+            .HasConversion(id => id.Value, id => new ResourceId(id))
+            .HasColumnName("ItemId")
+            .IsRequired();
+
+        builder
+            .Property<decimal>("_unitPrice")
+            .HasColumnName("UnitPrice")
+            .IsRequired();
+
+        builder
+            .Property<decimal>("_quantity")
+            .HasColumnName("Quantity")
+            .IsRequired();
+    }
+
     private static void ConfigureAgent<TAgent>(EntityTypeBuilder<TAgent> builder, string tableName) where TAgent : Agent
     {
         var agentNameConverter = new ValueConverter<AgentName, string>(name => name.Value,
@@ -185,12 +248,20 @@ internal sealed class WriteConfiguration : IEntityTypeConfiguration<SampleEntity
     }
 
     private static void ConfigureEvent<TEvent>(EntityTypeBuilder<TEvent> builder, string tableName) where TEvent : Domain.Entities.Event
+        => ConfigureOccurrent(builder, tableName, id => id.Value, id => new EventId(id));
+
+    private static void ConfigureCommitment<TCommitment>(EntityTypeBuilder<TCommitment> builder, string tableName) where TCommitment : Commitment
+        => ConfigureOccurrent(builder, tableName, id => id.Value, id => new CommitmentId(id));
+
+    private static void ConfigureOccurrent<TOccurrent, TId>(EntityTypeBuilder<TOccurrent> builder, string tableName, Func<TId, Guid> toProvider, Func<Guid, TId> fromProvider) where TOccurrent : Occurrent<TId>
     {
+        var idConverter = new ValueConverter<TId, Guid>(id => toProvider(id), value => fromProvider(value));
+
         builder.HasKey(@event => @event.Id);
 
         builder
             .Property(@event => @event.Id)
-            .HasConversion(id => id.Value, id => new EventId(id));
+            .HasConversion(idConverter);
 
         builder
             .Property<DateTimeOffset>("_when")
@@ -240,9 +311,9 @@ internal sealed class WriteConfiguration : IEntityTypeConfiguration<SampleEntity
             .HasConversion(id => id.Value, id => new StockflowId(id));
 
         builder
-            .Property<StockflowEndId>("_eventEndId")
+            .Property<StockflowEndId>("_occurrentEndId")
             .HasConversion(id => id.Value, id => new StockflowEndId(id))
-            .HasColumnName("EventEndId")
+            .HasColumnName("OccurrentEndId")
             .IsRequired();
 
         builder

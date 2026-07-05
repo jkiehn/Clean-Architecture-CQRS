@@ -1,13 +1,9 @@
 using CleanArchitectureCQRS.Domain.ValueObjects;
-using CleanArchitectureCQRS.Shared.Abstractions.Domains;
 
 namespace CleanArchitectureCQRS.Domain.Entities;
 
-public abstract class Participation : AggregateRoot<ParticipationId>
+public abstract class Participation : OccurrentParticipation<EventId>
 {
-    private AgentId _agentId = default!;
-    private EventId _eventId = default!;
-
     protected Participation()
     {
     }
@@ -19,8 +15,5 @@ public abstract class Participation : AggregateRoot<ParticipationId>
     }
 
     protected void UpdateParticipants(AgentId agentId, EventId eventId)
-    {
-        _agentId = agentId;
-        _eventId = eventId;
-    }
+        => UpdateOccurrentParticipant(agentId, eventId);
 }

@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace CleanArchitectureCQRS.Infrastructure.EF.Config;
 
-internal sealed class ReadConfiguration : IEntityTypeConfiguration<SampleEntityReadModel>, IEntityTypeConfiguration<SampleEntityItemReadModel>, IEntityTypeConfiguration<CustomerReadModel>, IEntityTypeConfiguration<VendorReadModel>, IEntityTypeConfiguration<EmployeeReadModel>, IEntityTypeConfiguration<ItemReadModel>, IEntityTypeConfiguration<SaleReadModel>, IEntityTypeConfiguration<SalesLineReadModel>
+internal sealed class ReadConfiguration : IEntityTypeConfiguration<SampleEntityReadModel>, IEntityTypeConfiguration<SampleEntityItemReadModel>, IEntityTypeConfiguration<CustomerReadModel>, IEntityTypeConfiguration<VendorReadModel>, IEntityTypeConfiguration<EmployeeReadModel>, IEntityTypeConfiguration<ItemReadModel>, IEntityTypeConfiguration<SaleReadModel>, IEntityTypeConfiguration<SalesLineReadModel>, IEntityTypeConfiguration<SalesOrderReadModel>, IEntityTypeConfiguration<SalesOrderLineReadModel>
 {
     public void Configure(EntityTypeBuilder<SampleEntityReadModel> builder)
     {
@@ -53,9 +53,30 @@ internal sealed class ReadConfiguration : IEntityTypeConfiguration<SampleEntityR
     {
         builder.ToTable("SalesLines");
         builder.HasKey(line => line.Id);
-        builder.Property(line => line.EventEndId).IsRequired();
+        builder.Property(line => line.OccurrentEndId).IsRequired();
         builder.Property(line => line.ResourceEndId).IsRequired();
         builder.Property(line => line.SaleId).IsRequired();
+        builder.Property(line => line.ItemId).IsRequired();
+        builder.Property(line => line.UnitPrice).IsRequired();
+        builder.Property(line => line.Quantity).IsRequired();
+    }
+
+    public void Configure(EntityTypeBuilder<SalesOrderReadModel> builder)
+    {
+        ConfigureCommitment(builder, "SalesOrders");
+        builder.Property(order => order.InternalParticipationId).IsRequired();
+        builder.Property(order => order.EmployeeId).IsRequired();
+        builder.Property(order => order.ExternalParticipationId).IsRequired();
+        builder.Property(order => order.CustomerId).IsRequired();
+    }
+
+    public void Configure(EntityTypeBuilder<SalesOrderLineReadModel> builder)
+    {
+        builder.ToTable("SalesOrderLines");
+        builder.HasKey(line => line.Id);
+        builder.Property(line => line.OccurrentEndId).IsRequired();
+        builder.Property(line => line.ResourceEndId).IsRequired();
+        builder.Property(line => line.SalesOrderId).IsRequired();
         builder.Property(line => line.ItemId).IsRequired();
         builder.Property(line => line.UnitPrice).IsRequired();
         builder.Property(line => line.Quantity).IsRequired();
@@ -77,6 +98,12 @@ internal sealed class ReadConfiguration : IEntityTypeConfiguration<SampleEntityR
     }
 
     private static void ConfigureEvent<TEvent>(EntityTypeBuilder<TEvent> builder, string tableName) where TEvent : EventReadModelBase
+        => ConfigureOccurrent(builder, tableName);
+
+    private static void ConfigureCommitment<TCommitment>(EntityTypeBuilder<TCommitment> builder, string tableName) where TCommitment : CommitmentReadModelBase
+        => ConfigureOccurrent(builder, tableName);
+
+    private static void ConfigureOccurrent<TOccurrent>(EntityTypeBuilder<TOccurrent> builder, string tableName) where TOccurrent : OccurrentReadModelBase
     {
         builder.ToTable(tableName);
         builder.HasKey(@event => @event.Id);

@@ -3,30 +3,30 @@ using CleanArchitectureCQRS.Domain.ValueObjects;
 
 namespace CleanArchitectureCQRS.Domain.Entities;
 
-public sealed class SalesLine : Give
+public sealed class SalesOrderLine : Give
 {
-    private EventId _saleId = default!;
+    private CommitmentId _salesOrderId = default!;
     private ResourceId _itemId = default!;
     private decimal _unitPrice;
     private decimal _quantity;
 
-    public SalesLine()
+    public SalesOrderLine()
     {
     }
 
-    public SalesLine(StockflowId id, EventId saleId, ResourceId itemId, decimal unitPrice, decimal quantity)
+    public SalesOrderLine(StockflowId id, CommitmentId salesOrderId, ResourceId itemId, decimal unitPrice, decimal quantity)
         : base(id, new StockflowEndId(Guid.NewGuid()), new StockflowEndId(Guid.NewGuid()))
     {
-        AssignToSale(saleId, itemId);
+        AssignToSalesOrder(salesOrderId, itemId);
         UpdateAmounts(unitPrice, quantity);
     }
 
     public decimal LineTotal => _unitPrice * _quantity;
 
-    public SalesLineEventEnd GetEventEnd()
-        => new(GetFieldValue<StockflowEndId>("_occurrentEndId"), Id, _saleId);
+    public SalesOrderLineCommitmentEnd GetCommitmentEnd()
+        => new(GetFieldValue<StockflowEndId>("_occurrentEndId"), Id, _salesOrderId);
 
-    public SalesLineResourceEnd GetResourceEnd()
+    public SalesOrderLineResourceEnd GetResourceEnd()
         => new(GetFieldValue<StockflowEndId>("_resourceEndId"), Id, _itemId);
 
     public void UpdateDetails(ResourceId itemId, decimal unitPrice, decimal quantity)
@@ -35,9 +35,9 @@ public sealed class SalesLine : Give
         UpdateAmounts(unitPrice, quantity);
     }
 
-    private void AssignToSale(EventId saleId, ResourceId itemId)
+    private void AssignToSalesOrder(CommitmentId salesOrderId, ResourceId itemId)
     {
-        _saleId = saleId;
+        _salesOrderId = salesOrderId;
         _itemId = itemId;
     }
 

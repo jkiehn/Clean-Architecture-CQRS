@@ -8,7 +8,7 @@ namespace CleanArchitecture.CQRS.UnitTest.Domain;
 public class SalesLineTest
 {
     [Fact]
-    public void Constructor_Creates_Event_And_Resource_Ends_And_Computes_LineTotal()
+    public void Constructor_Creates_Occurrent_And_Resource_Ends_And_Computes_LineTotal()
     {
         var saleId = new EventId(Guid.NewGuid());
         var itemId = new ResourceId(Guid.NewGuid());

@@ -16,7 +16,20 @@ public class StockflowEndTest
         eventEnd.Reassign(updatedStockflowId, updatedEventId);
 
         GetFieldValue<StockflowId>(eventEnd, "_stockflowId").ShouldBe(updatedStockflowId);
-        GetFieldValue<EventId>(eventEnd, "_eventId").ShouldBe(updatedEventId);
+        GetFieldValue<EventId>(eventEnd, "_occurrentId").ShouldBe(updatedEventId);
+    }
+
+    [Fact]
+    public void UpdateCommitmentEnd_Changes_StockflowId_And_CommitmentId()
+    {
+        var commitmentEnd = new TestCommitmentStockflowEnd(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
+        var updatedStockflowId = new StockflowId(Guid.NewGuid());
+        var updatedCommitmentId = new CommitmentId(Guid.NewGuid());
+
+        commitmentEnd.Reassign(updatedStockflowId, updatedCommitmentId);
+
+        GetFieldValue<StockflowId>(commitmentEnd, "_stockflowId").ShouldBe(updatedStockflowId);
+        GetFieldValue<CommitmentId>(commitmentEnd, "_occurrentId").ShouldBe(updatedCommitmentId);
     }
 
     [Fact]
@@ -67,5 +80,16 @@ public class StockflowEndTest
 
         public void Reassign(StockflowId stockflowId, ResourceId resourceId)
             => UpdateResourceEnd(stockflowId, resourceId);
+    }
+
+    private sealed class TestCommitmentStockflowEnd : CommitmentStockflowEnd
+    {
+        public TestCommitmentStockflowEnd(Guid id, Guid stockflowId, Guid commitmentId)
+            : base(id, stockflowId, commitmentId)
+        {
+        }
+
+        public void Reassign(StockflowId stockflowId, CommitmentId commitmentId)
+            => UpdateCommitmentEnd(stockflowId, commitmentId);
     }
 }
