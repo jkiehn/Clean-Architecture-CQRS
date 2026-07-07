@@ -3,7 +3,7 @@ using CleanArchitectureCQRS.Infrastructure.EF.Contexts;
 
 namespace CleanArchitectureCQRS.Infrastructure.EF.Repositories;
 
-internal sealed class CustomerRepository : AgentRepository<CleanArchitectureCQRS.Domain.Entities.Customer>, ICustomerRepository
+internal sealed class CustomerRepository : AgentRepository<Customer>, ICustomerRepository
 {
     public CustomerRepository(WriteDbContext writeDbContext)
         : base(writeDbContext, writeDbContext.Customers)

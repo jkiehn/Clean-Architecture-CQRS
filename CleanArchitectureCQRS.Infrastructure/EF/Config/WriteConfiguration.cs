@@ -340,7 +340,7 @@ internal sealed class WriteConfiguration : IEntityTypeConfiguration<SampleEntity
         builder.ToTable(tableName);
     }
 
-    private static void ConfigureEvent<TEvent>(EntityTypeBuilder<TEvent> builder, string tableName) where TEvent : Domain.Entities.Event
+    private static void ConfigureEvent<TEvent>(EntityTypeBuilder<TEvent> builder, string tableName) where TEvent : Event
         => ConfigureOccurrent(builder, tableName, id => id.Value, id => new EventId(id));
 
     private static void ConfigureCommitment<TCommitment>(EntityTypeBuilder<TCommitment> builder, string tableName) where TCommitment : Commitment

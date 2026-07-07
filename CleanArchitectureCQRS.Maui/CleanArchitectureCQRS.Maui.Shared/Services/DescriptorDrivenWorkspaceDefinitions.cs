@@ -180,6 +180,7 @@ public static class DescriptorDrivenWorkspaceDefinitions
     {
         new EntityDescriptor(
             "items",
+            "Inventory",
             "Item",
             "Items",
             "Create, inspect, update, and remove resource items.",
@@ -192,6 +193,7 @@ public static class DescriptorDrivenWorkspaceDefinitions
             "Delete"),
         new EntityDescriptor(
             "cash",
+            "Sales",
             "Cash",
             "Cash",
             "Create, inspect, update, and remove cash resources.",
@@ -204,6 +206,7 @@ public static class DescriptorDrivenWorkspaceDefinitions
             "Delete"),
         new EntityDescriptor(
             "customers",
+            "Sales",
             "Customer",
             "Customers",
             "Create, inspect, update, and remove customer agents.",
@@ -216,6 +219,7 @@ public static class DescriptorDrivenWorkspaceDefinitions
             "Delete"),
         new EntityDescriptor(
             "vendors",
+            "Procurement",
             "Vendor",
             "Vendors",
             "Create, inspect, update, and remove vendor agents.",
@@ -228,6 +232,7 @@ public static class DescriptorDrivenWorkspaceDefinitions
             "Delete"),
         new EntityDescriptor(
             "employees",
+            "Human Resources",
             "Employee",
             "Employees",
             "Create, inspect, update, and remove employee agents.",
@@ -240,6 +245,7 @@ public static class DescriptorDrivenWorkspaceDefinitions
             "Delete"),
         new EntityDescriptor(
             "sales",
+            "Sales",
             "Sale",
             "Sales",
             "Create, inspect, update, and remove sales events.",
@@ -252,6 +258,7 @@ public static class DescriptorDrivenWorkspaceDefinitions
             "Delete"),
         new EntityDescriptor(
             "customer-payments",
+            "Sales",
             "Customer Payment",
             "Customer Payments",
             "Create, inspect, update, and remove customer payment events.",
@@ -264,6 +271,7 @@ public static class DescriptorDrivenWorkspaceDefinitions
             "Delete"),
         new EntityDescriptor(
             "pays-for",
+            "Sales",
             "Pays For",
             "Pays For",
             "Create, inspect, and remove links between sales and customer payments.",
@@ -276,6 +284,7 @@ public static class DescriptorDrivenWorkspaceDefinitions
             "Delete"),
         new EntityDescriptor(
             "sales-orders",
+            "Sales",
             "Sales Order",
             "Sales Orders",
             "Create, inspect, update, and remove sales order commitments.",
@@ -288,6 +297,7 @@ public static class DescriptorDrivenWorkspaceDefinitions
             "Delete"),
         new EntityDescriptor(
             "it-contracts",
+            "Procurement",
             "IT Contract",
             "IT Contracts",
             "Create, inspect, update, and remove prepaid IT contracts.",
@@ -300,6 +310,7 @@ public static class DescriptorDrivenWorkspaceDefinitions
             "Delete"),
         new EntityDescriptor(
             "prepaid-it-report",
+            "Procurement",
             "Prepaid IT Report",
             "Prepaid IT Report",
             "Review monthly prepaid IT expenses per department across all contracts.",
@@ -309,6 +320,7 @@ public static class DescriptorDrivenWorkspaceDefinitions
             32),
         new EntityDescriptor(
             "agents",
+            "REA Base",
             "Agent",
             "Agents",
             "Read-only abstraction view across agent types.",

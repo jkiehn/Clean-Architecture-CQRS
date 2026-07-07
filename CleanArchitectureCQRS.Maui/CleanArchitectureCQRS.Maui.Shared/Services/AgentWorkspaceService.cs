@@ -11,6 +11,7 @@ public sealed class AgentWorkspaceService : EntityWorkspaceServiceBase
 
     public override EntityDescriptor Descriptor { get; } = new(
         "agents",
+        "REA Base",
         "Agent",
         "Agents",
         "Read-only abstraction view across agent types.",

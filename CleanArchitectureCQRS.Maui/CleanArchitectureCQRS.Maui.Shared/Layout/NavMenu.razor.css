@@ -66,6 +66,27 @@
     padding-bottom: 0.5rem;
 }
 
+.nav-group {
+    padding-bottom: 0.85rem;
+}
+
+.nav-group-title {
+    color: rgba(255, 255, 255, 0.72);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    padding: 0.4rem 0 0.55rem;
+    text-transform: uppercase;
+}
+
+.nav-sub-item {
+    padding-bottom: 0.25rem;
+}
+
+.nav-sub-item ::deep .nav-link {
+    padding-left: 0.75rem;
+}
+
     .nav-item:first-of-type {
         padding-top: 1rem;
     }

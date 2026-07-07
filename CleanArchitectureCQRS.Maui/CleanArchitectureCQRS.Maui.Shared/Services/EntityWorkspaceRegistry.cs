@@ -14,10 +14,19 @@ public sealed class EntityWorkspaceRegistry : IEntityWorkspaceRegistry
             .Select(service => service.Descriptor)
             .ToArray();
 
+        Groups = Descriptors
+            .GroupBy(descriptor => descriptor.ProcessName)
+            .Select(group => new EntityDescriptorGroup(
+                group.Key,
+                group.OrderBy(descriptor => descriptor.Order).ToArray()))
+            .ToArray();
+
         _services = orderedServices.ToDictionary(service => service.Descriptor.Key, StringComparer.OrdinalIgnoreCase);
     }
 
     public IReadOnlyList<EntityDescriptor> Descriptors { get; }
+
+    public IReadOnlyList<EntityDescriptorGroup> Groups { get; }
 
     public IEntityWorkspaceService Get(string key)
     {

@@ -15,12 +15,18 @@
                 <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Workspace
             </NavLink>
         </div>
-        @foreach (var descriptor in Registry.Descriptors)
+        @foreach (var group in Registry.Groups)
         {
-            <div class="nav-item px-3">
-                <NavLink class="nav-link" href="@($"/entities/{descriptor.Key}")">
-                    <span class="bi @descriptor.IconCssClass" aria-hidden="true"></span> @descriptor.PluralDisplayName
-                </NavLink>
+            <div class="nav-group px-3">
+                <div class="nav-group-title">@group.ProcessName</div>
+                @foreach (var descriptor in group.Descriptors)
+                {
+                    <div class="nav-item nav-sub-item">
+                        <NavLink class="nav-link" href="@($"/entities/{descriptor.Key}")">
+                            <span class="bi @descriptor.IconCssClass" aria-hidden="true"></span> @descriptor.DisplayName
+                        </NavLink>
+                    </div>
+                }
             </div>
         }
     </nav>

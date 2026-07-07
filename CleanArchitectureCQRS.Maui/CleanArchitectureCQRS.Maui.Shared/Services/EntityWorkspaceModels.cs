@@ -41,6 +41,7 @@ public record EntityActionDefinition(
 
 public record EntityDescriptor(
     string Key,
+    string ProcessName,
     string DisplayName,
     string PluralDisplayName,
     string Description,
@@ -51,6 +52,10 @@ public record EntityDescriptor(
     EntityActionDefinition? CreateAction = null,
     EntityActionDefinition? EditAction = null,
     string? DeleteLabel = null);
+
+public record EntityDescriptorGroup(
+    string ProcessName,
+    IReadOnlyList<EntityDescriptor> Descriptors);
 
 public record EntityProperty(string Label, string Value);
 

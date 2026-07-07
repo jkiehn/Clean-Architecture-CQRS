@@ -33,6 +33,7 @@ public sealed class SampleEntityWorkspaceService : EntityWorkspaceServiceBase
 
     public override EntityDescriptor Descriptor { get; } = new(
         "sample-entities",
+        "Samples",
         "Sample Entity",
         "Sample Entities",
         "Manage destinations and item workflows for sample entities.",

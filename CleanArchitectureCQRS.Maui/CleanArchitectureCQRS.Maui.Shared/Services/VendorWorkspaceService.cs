@@ -7,6 +7,7 @@ public sealed class VendorWorkspaceService : AgentSubtypeWorkspaceServiceBase
             service,
             new EntityDescriptor(
                 "vendors",
+                "Procurement",
                 "Vendor",
                 "Vendors",
                 "Create, inspect, update, and remove vendor agents.",

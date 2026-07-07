@@ -7,6 +7,7 @@ public sealed class ItemWorkspaceService : ResourceSubtypeWorkspaceServiceBase
             service,
             new EntityDescriptor(
                 "items",
+                "Inventory",
                 "Item",
                 "Items",
                 "Create, inspect, update, and remove resource items.",

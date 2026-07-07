@@ -7,6 +7,7 @@ public sealed class CustomerWorkspaceService : AgentSubtypeWorkspaceServiceBase
             service,
             new EntityDescriptor(
                 "customers",
+                "Sales",
                 "Customer",
                 "Customers",
                 "Create, inspect, update, and remove customer agents.",
