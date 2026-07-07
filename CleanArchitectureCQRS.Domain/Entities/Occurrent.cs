@@ -8,6 +8,10 @@ public abstract class Occurrent<TId> : AggregateRoot<TId>
     private DateTimeOffset? _endWhen;
     private decimal? _amount;
 
+    protected DateTimeOffset When => _when;
+    protected DateTimeOffset? EndWhen => _endWhen;
+    protected decimal? Amount => _amount;
+
     protected Occurrent()
     {
     }

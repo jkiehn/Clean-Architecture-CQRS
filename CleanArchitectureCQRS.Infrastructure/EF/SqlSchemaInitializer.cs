@@ -356,6 +356,93 @@ public static class SqlSchemaInitializer
             ALTER TABLE [SampleEntity].[SalesOrderLines]
             ADD [Quantity] decimal(18,2) NOT NULL CONSTRAINT [DF_SalesOrderLines_Quantity] DEFAULT (1);
         END
+
+        IF OBJECT_ID(N'[SampleEntity].[ItContracts]', N'U') IS NULL
+        BEGIN
+            CREATE TABLE [SampleEntity].[ItContracts]
+            (
+                [Id] uniqueidentifier NOT NULL,
+                [When] datetimeoffset NOT NULL,
+                [EndWhen] datetimeoffset NOT NULL,
+                [Amount] decimal(18,2) NOT NULL,
+                [DepartmentCode] nvarchar(64) NOT NULL,
+                [InternalParticipationId] uniqueidentifier NOT NULL,
+                [ResponsibleEmployeeId] uniqueidentifier NOT NULL,
+                [ExternalParticipationId] uniqueidentifier NOT NULL,
+                [VendorId] uniqueidentifier NOT NULL,
+                [ServiceName] nvarchar(max) NOT NULL,
+                [Version] int NOT NULL CONSTRAINT [DF_ItContracts_Version] DEFAULT (0),
+                CONSTRAINT [PK_ItContracts] PRIMARY KEY ([Id])
+            );
+        END
+        ELSE IF COL_LENGTH(N'[SampleEntity].[ItContracts]', N'Version') IS NULL
+        BEGIN
+            ALTER TABLE [SampleEntity].[ItContracts]
+            ADD [Version] int NOT NULL CONSTRAINT [DF_ItContracts_Version] DEFAULT (0);
+        END
+
+        IF OBJECT_ID(N'[SampleEntity].[ItContracts]', N'U') IS NOT NULL
+            AND COL_LENGTH(N'[SampleEntity].[ItContracts]', N'When') IS NULL
+        BEGIN
+            ALTER TABLE [SampleEntity].[ItContracts]
+            ADD [When] datetimeoffset NOT NULL CONSTRAINT [DF_ItContracts_When] DEFAULT (SYSDATETIMEOFFSET());
+        END
+
+        IF OBJECT_ID(N'[SampleEntity].[ItContracts]', N'U') IS NOT NULL
+            AND COL_LENGTH(N'[SampleEntity].[ItContracts]', N'EndWhen') IS NULL
+        BEGIN
+            ALTER TABLE [SampleEntity].[ItContracts]
+            ADD [EndWhen] datetimeoffset NOT NULL CONSTRAINT [DF_ItContracts_EndWhen] DEFAULT (SYSDATETIMEOFFSET());
+        END
+
+        IF OBJECT_ID(N'[SampleEntity].[ItContracts]', N'U') IS NOT NULL
+            AND COL_LENGTH(N'[SampleEntity].[ItContracts]', N'Amount') IS NULL
+        BEGIN
+            ALTER TABLE [SampleEntity].[ItContracts]
+            ADD [Amount] decimal(18,2) NOT NULL CONSTRAINT [DF_ItContracts_Amount] DEFAULT (1);
+        END
+
+        IF OBJECT_ID(N'[SampleEntity].[ItContracts]', N'U') IS NOT NULL
+            AND COL_LENGTH(N'[SampleEntity].[ItContracts]', N'DepartmentCode') IS NULL
+        BEGIN
+            ALTER TABLE [SampleEntity].[ItContracts]
+            ADD [DepartmentCode] nvarchar(64) NOT NULL CONSTRAINT [DF_ItContracts_DepartmentCode] DEFAULT (N'UNKNOWN');
+        END
+
+        IF OBJECT_ID(N'[SampleEntity].[ItContracts]', N'U') IS NOT NULL
+            AND COL_LENGTH(N'[SampleEntity].[ItContracts]', N'InternalParticipationId') IS NULL
+        BEGIN
+            ALTER TABLE [SampleEntity].[ItContracts]
+            ADD [InternalParticipationId] uniqueidentifier NOT NULL CONSTRAINT [DF_ItContracts_InternalParticipationId] DEFAULT (NEWID());
+        END
+
+        IF OBJECT_ID(N'[SampleEntity].[ItContracts]', N'U') IS NOT NULL
+            AND COL_LENGTH(N'[SampleEntity].[ItContracts]', N'ResponsibleEmployeeId') IS NULL
+        BEGIN
+            ALTER TABLE [SampleEntity].[ItContracts]
+            ADD [ResponsibleEmployeeId] uniqueidentifier NOT NULL CONSTRAINT [DF_ItContracts_ResponsibleEmployeeId] DEFAULT ('00000000-0000-0000-0000-000000000001');
+        END
+
+        IF OBJECT_ID(N'[SampleEntity].[ItContracts]', N'U') IS NOT NULL
+            AND COL_LENGTH(N'[SampleEntity].[ItContracts]', N'ExternalParticipationId') IS NULL
+        BEGIN
+            ALTER TABLE [SampleEntity].[ItContracts]
+            ADD [ExternalParticipationId] uniqueidentifier NOT NULL CONSTRAINT [DF_ItContracts_ExternalParticipationId] DEFAULT (NEWID());
+        END
+
+        IF OBJECT_ID(N'[SampleEntity].[ItContracts]', N'U') IS NOT NULL
+            AND COL_LENGTH(N'[SampleEntity].[ItContracts]', N'VendorId') IS NULL
+        BEGIN
+            ALTER TABLE [SampleEntity].[ItContracts]
+            ADD [VendorId] uniqueidentifier NOT NULL CONSTRAINT [DF_ItContracts_VendorId] DEFAULT ('00000000-0000-0000-0000-000000000001');
+        END
+
+        IF OBJECT_ID(N'[SampleEntity].[ItContracts]', N'U') IS NOT NULL
+            AND COL_LENGTH(N'[SampleEntity].[ItContracts]', N'ServiceName') IS NULL
+        BEGIN
+            ALTER TABLE [SampleEntity].[ItContracts]
+            ADD [ServiceName] nvarchar(max) NOT NULL CONSTRAINT [DF_ItContracts_ServiceName] DEFAULT (N'Unnamed service');
+        END
         """;
 
     public static async Task EnsureAsync(this IServiceProvider serviceProvider)

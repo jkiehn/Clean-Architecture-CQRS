@@ -16,6 +16,7 @@ internal sealed class WriteDbContext : DbContext
     public DbSet<SalesLine> SalesLines { get; set; }
     public DbSet<SalesOrder> SalesOrders { get; set; }
     public DbSet<SalesOrderLine> SalesOrderLines { get; set; }
+    public DbSet<ItContract> ItContracts { get; set; }
 
     public WriteDbContext(DbContextOptions<WriteDbContext> options) : base(options)
     {
@@ -36,5 +37,6 @@ internal sealed class WriteDbContext : DbContext
         modelBuilder.ApplyConfiguration<SalesLine>(configuration);
         modelBuilder.ApplyConfiguration<SalesOrder>(configuration);
         modelBuilder.ApplyConfiguration<SalesOrderLine>(configuration);
+        modelBuilder.ApplyConfiguration<ItContract>(configuration);
     }
 }

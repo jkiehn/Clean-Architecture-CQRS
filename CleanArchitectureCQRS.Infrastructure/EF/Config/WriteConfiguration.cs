@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace CleanArchitectureCQRS.Infrastructure.EF.Config;
 
-internal sealed class WriteConfiguration : IEntityTypeConfiguration<SampleEntity>, IEntityTypeConfiguration<SampleEntityItem>, IEntityTypeConfiguration<Customer>, IEntityTypeConfiguration<Vendor>, IEntityTypeConfiguration<Employee>, IEntityTypeConfiguration<Item>, IEntityTypeConfiguration<Sale>, IEntityTypeConfiguration<SalesLine>, IEntityTypeConfiguration<SalesOrder>, IEntityTypeConfiguration<SalesOrderLine>
+internal sealed class WriteConfiguration : IEntityTypeConfiguration<SampleEntity>, IEntityTypeConfiguration<SampleEntityItem>, IEntityTypeConfiguration<Customer>, IEntityTypeConfiguration<Vendor>, IEntityTypeConfiguration<Employee>, IEntityTypeConfiguration<Item>, IEntityTypeConfiguration<Sale>, IEntityTypeConfiguration<SalesLine>, IEntityTypeConfiguration<SalesOrder>, IEntityTypeConfiguration<SalesOrderLine>, IEntityTypeConfiguration<ItContract>
 {
     public void Configure(EntityTypeBuilder<SampleEntity> builder)
     {
@@ -199,6 +199,19 @@ internal sealed class WriteConfiguration : IEntityTypeConfiguration<SampleEntity
             .IsRequired();
     }
 
+    public void Configure(EntityTypeBuilder<ItContract> builder)
+    {
+        ConfigureContract(builder, "ItContracts");
+
+        var serviceNameConverter = new ValueConverter<ContractServiceName, string>(name => name.Value, value => new ContractServiceName(value));
+
+        builder
+            .Property(typeof(ContractServiceName), "_serviceName")
+            .HasConversion(serviceNameConverter)
+            .HasColumnName("ServiceName")
+            .IsRequired();
+    }
+
     private static void ConfigureAgent<TAgent>(EntityTypeBuilder<TAgent> builder, string tableName) where TAgent : Agent
     {
         var agentNameConverter = new ValueConverter<AgentName, string>(name => name.Value,
@@ -252,6 +265,43 @@ internal sealed class WriteConfiguration : IEntityTypeConfiguration<SampleEntity
 
     private static void ConfigureCommitment<TCommitment>(EntityTypeBuilder<TCommitment> builder, string tableName) where TCommitment : Commitment
         => ConfigureOccurrent(builder, tableName, id => id.Value, id => new CommitmentId(id));
+
+    private static void ConfigureContract<TContract>(EntityTypeBuilder<TContract> builder, string tableName) where TContract : Contract
+    {
+        var departmentCodeConverter = new ValueConverter<ContractDepartmentCode, string>(code => code.Value, value => new ContractDepartmentCode(value));
+
+        ConfigureCommitment(builder, tableName);
+
+        builder
+            .Property(typeof(ContractDepartmentCode), "_departmentCode")
+            .HasConversion(departmentCodeConverter)
+            .HasColumnName("DepartmentCode")
+            .IsRequired();
+
+        builder
+            .Property<ParticipationId>("_internalParticipationId")
+            .HasConversion(id => id.Value, id => new ParticipationId(id))
+            .HasColumnName("InternalParticipationId")
+            .IsRequired();
+
+        builder
+            .Property<AgentId>("_responsibleEmployeeId")
+            .HasConversion(id => id.Value, id => new AgentId(id))
+            .HasColumnName("ResponsibleEmployeeId")
+            .IsRequired();
+
+        builder
+            .Property<ParticipationId>("_externalParticipationId")
+            .HasConversion(id => id.Value, id => new ParticipationId(id))
+            .HasColumnName("ExternalParticipationId")
+            .IsRequired();
+
+        builder
+            .Property<AgentId>("_vendorId")
+            .HasConversion(id => id.Value, id => new AgentId(id))
+            .HasColumnName("VendorId")
+            .IsRequired();
+    }
 
     private static void ConfigureOccurrent<TOccurrent, TId>(EntityTypeBuilder<TOccurrent> builder, string tableName, Func<TId, Guid> toProvider, Func<Guid, TId> fromProvider) where TOccurrent : Occurrent<TId>
     {

@@ -110,6 +110,36 @@ public static class DescriptorDrivenWorkspaceDefinitions
             new EntityFieldDefinition("customer", "Customer", Required: true, Placeholder: "Customer email, name, or id", Lookup: new EntityLookupDefinition("customers", ValueSource: EntityLookupValueSource.Subtitle))
         });
 
+    private static readonly EntityActionDefinition CreateItContractAction = new(
+        "create",
+        "Create",
+        "btn btn-primary action-btn",
+        new[]
+        {
+            new EntityFieldDefinition("serviceName", "Service Name", Required: true, Placeholder: "Microsoft 365 E5"),
+            new EntityFieldDefinition("departmentCode", "Department Code", Required: true, Placeholder: "FIN-001"),
+            new EntityFieldDefinition("startDate", "Start Date", EntityFieldKind.DateTime, Required: true, Placeholder: "2026-01-15"),
+            new EntityFieldDefinition("endDate", "End Date", EntityFieldKind.DateTime, Required: true, Placeholder: "2027-01-14"),
+            new EntityFieldDefinition("prepaidAmount", "Prepaid Amount", EntityFieldKind.Number, Required: true, Placeholder: "36500.00"),
+            new EntityFieldDefinition("responsibleEmployee", "Responsible Employee", Required: true, Placeholder: "Employee email, name, id, or SSN", Lookup: new EntityLookupDefinition("employees", ValueSource: EntityLookupValueSource.Subtitle)),
+            new EntityFieldDefinition("vendor", "Vendor", Required: true, Placeholder: "Vendor email, name, or id", Lookup: new EntityLookupDefinition("vendors", ValueSource: EntityLookupValueSource.Subtitle))
+        });
+
+    private static readonly EntityActionDefinition EditItContractAction = new(
+        "edit",
+        "Save changes",
+        "btn btn-dark action-btn",
+        new[]
+        {
+            new EntityFieldDefinition("serviceName", "Service Name", Required: true, Placeholder: "Microsoft 365 E5"),
+            new EntityFieldDefinition("departmentCode", "Department Code", Required: true, Placeholder: "FIN-001"),
+            new EntityFieldDefinition("startDate", "Start Date", EntityFieldKind.DateTime, Required: true, Placeholder: "2026-01-15"),
+            new EntityFieldDefinition("endDate", "End Date", EntityFieldKind.DateTime, Required: true, Placeholder: "2027-01-14"),
+            new EntityFieldDefinition("prepaidAmount", "Prepaid Amount", EntityFieldKind.Number, Required: true, Placeholder: "36500.00"),
+            new EntityFieldDefinition("responsibleEmployee", "Responsible Employee", Required: true, Placeholder: "Employee email, name, id, or SSN", Lookup: new EntityLookupDefinition("employees", ValueSource: EntityLookupValueSource.Subtitle)),
+            new EntityFieldDefinition("vendor", "Vendor", Required: true, Placeholder: "Vendor email, name, or id", Lookup: new EntityLookupDefinition("vendors", ValueSource: EntityLookupValueSource.Subtitle))
+        });
+
     public static IReadOnlyList<EntityDescriptor> All { get; } = new[]
     {
         new EntityDescriptor(
@@ -184,6 +214,27 @@ public static class DescriptorDrivenWorkspaceDefinitions
             CreateSalesOrderAction,
             EditSalesOrderAction,
             "Delete"),
+        new EntityDescriptor(
+            "it-contracts",
+            "IT Contract",
+            "IT Contracts",
+            "Create, inspect, update, and remove prepaid IT contracts.",
+            "bi-hdd-network",
+            "Search IT contracts by service, vendor, department, employee, or amount",
+            "No IT contracts found yet. Create the first prepaid IT contract from the panel on the right.",
+            31,
+            CreateItContractAction,
+            EditItContractAction,
+            "Delete"),
+        new EntityDescriptor(
+            "prepaid-it-report",
+            "Prepaid IT Report",
+            "Prepaid IT Report",
+            "Review monthly prepaid IT expenses per department across all contracts.",
+            "bi-bar-chart-line",
+            "Open the prepaid IT expense report",
+            "The prepaid IT expense report is ready to open.",
+            32),
         new EntityDescriptor(
             "agents",
             "Agent",

@@ -18,17 +18,20 @@ public class EntityWorkspaceRegistryTests
             ,new StubWorkspaceService(new EntityDescriptor("employees", "Employee", "Employees", "Employee view", "bi-person-badge", "Search employees", "None", 27))
             ,new StubWorkspaceService(new EntityDescriptor("sales", "Sale", "Sales", "Sale view", "bi-currency-dollar", "Search sales", "None", 28))
             ,new StubWorkspaceService(new EntityDescriptor("sales-orders", "Sales Order", "Sales Orders", "Sales order view", "bi-receipt-cutoff", "Search sales orders", "None", 29))
+            ,new StubWorkspaceService(new EntityDescriptor("it-contracts", "IT Contract", "IT Contracts", "IT contract view", "bi-hdd-network", "Search IT contracts", "None", 31))
+            ,new StubWorkspaceService(new EntityDescriptor("prepaid-it-report", "Prepaid IT Report", "Prepaid IT Report", "Report view", "bi-bar-chart-line", "Open report", "None", 32))
         };
 
         var registry = new EntityWorkspaceRegistry(services);
 
-        registry.Descriptors.Select(descriptor => descriptor.Key).ShouldBe(["sample-entities", "items", "customers", "vendors", "employees", "sales", "sales-orders", "agents"]);
+        registry.Descriptors.Select(descriptor => descriptor.Key).ShouldBe(["sample-entities", "items", "customers", "vendors", "employees", "sales", "sales-orders", "agents", "it-contracts", "prepaid-it-report"]);
         registry.Get("items").Descriptor.PluralDisplayName.ShouldBe("Items");
         registry.Get("customers").Descriptor.PluralDisplayName.ShouldBe("Customers");
         registry.Get("vendors").Descriptor.PluralDisplayName.ShouldBe("Vendors");
         registry.Get("employees").Descriptor.PluralDisplayName.ShouldBe("Employees");
         registry.Get("sales").Descriptor.PluralDisplayName.ShouldBe("Sales");
         registry.Get("sales-orders").Descriptor.PluralDisplayName.ShouldBe("Sales Orders");
+        registry.Get("it-contracts").Descriptor.PluralDisplayName.ShouldBe("IT Contracts");
     }
 
     private sealed class StubWorkspaceService : EntityWorkspaceServiceBase

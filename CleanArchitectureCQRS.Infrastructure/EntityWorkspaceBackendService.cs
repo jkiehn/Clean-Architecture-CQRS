@@ -11,6 +11,9 @@ namespace CleanArchitectureCQRS.Infrastructure;
 
 internal sealed class EntityWorkspaceBackendService : IEntityWorkspaceBackendService
 {
+    private static readonly Guid PrepaidItExpenseCalculatedReportId = new("9D8F7E27-56AF-4A41-9965-65B02689AE43");
+    private static readonly Guid PrepaidItExpenseThirtyDayReportId = new("B7F44E88-7479-40F6-9664-8C1FAFBF6A13");
+
     private readonly ReadDbContext _readDbContext;
     private readonly WriteDbContext _writeDbContext;
     private readonly IReadOnlyDictionary<string, EntityWorkspaceBackendDescriptor> _descriptors;
@@ -27,6 +30,8 @@ internal sealed class EntityWorkspaceBackendService : IEntityWorkspaceBackendSer
             CreateResourceSubtypeDescriptor<Item, ItemReadModel>("items", "Item"),
             CreateSaleDescriptor(),
             CreateSalesOrderDescriptor(),
+            CreateItContractDescriptor(),
+            CreatePrepaidItReportDescriptor(),
             CreateAgentAggregationDescriptor()
         }.ToDictionary(descriptor => descriptor.Key, StringComparer.OrdinalIgnoreCase);
     }
@@ -128,6 +133,25 @@ internal sealed class EntityWorkspaceBackendService : IEntityWorkspaceBackendSer
             (service, id) => service.DeleteSalesOrderAsync(id),
             (service, id, collectionKey, actionKey, values) => service.ExecuteSalesOrderCollectionActionAsync(id, collectionKey, actionKey, values),
             (service, id, collectionKey, itemKey, actionKey) => service.ExecuteSalesOrderCollectionItemActionAsync(id, collectionKey, itemKey, actionKey));
+
+    private static EntityWorkspaceBackendDescriptor CreateItContractDescriptor()
+        => new(
+            "it-contracts",
+            (service, searchPhrase) => service.SearchItContractsAsync(searchPhrase),
+            (service, id) => service.GetItContractAsync(id),
+            (service, values) => service.CreateItContractAsync(values),
+            (service, id, values) => service.UpdateItContractAsync(id, values),
+            (service, id) => service.DeleteItContractAsync(id));
+
+    private static EntityWorkspaceBackendDescriptor CreatePrepaidItReportDescriptor()
+        => new(
+            "prepaid-it-report",
+            (service, searchPhrase) => service.SearchPrepaidItReportAsync(searchPhrase),
+            (service, id) => service.GetPrepaidItReportAsync(id),
+            null,
+            null,
+            null,
+            (service, id, collectionKey, actionKey, values) => service.ExecutePrepaidItReportCollectionActionAsync(id, collectionKey, actionKey, values));
 
     private async Task<IReadOnlyList<EntityWorkspaceListItemDto>> SearchAgentSubtypeAsync<TReadModel>(string? searchPhrase, string entityType)
         where TReadModel : AgentReadModelBase
@@ -996,6 +1020,469 @@ internal sealed class EntityWorkspaceBackendService : IEntityWorkspaceBackendSer
         return new EntityWorkspaceOperationResultDto("Sales order line removed.");
     }
 
+    private async Task<IReadOnlyList<EntityWorkspaceListItemDto>> SearchItContractsAsync(string? searchPhrase)
+    {
+        var search = searchPhrase?.Trim();
+        var hasAmountFilter = decimal.TryParse(search, out var parsedAmount);
+
+        var query =
+            from contract in _readDbContext.ItContracts
+            join employee in _readDbContext.Employees on contract.ResponsibleEmployeeId equals employee.Id
+            join vendor in _readDbContext.Vendors on contract.VendorId equals vendor.Id
+            select new
+            {
+                contract.Id,
+                contract.ServiceName,
+                contract.DepartmentCode,
+                contract.When,
+                contract.EndWhen,
+                contract.Amount,
+                EmployeeName = employee.Name,
+                VendorName = vendor.Name
+            };
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            query = query.Where(item =>
+                Microsoft.EntityFrameworkCore.EF.Functions.Like(item.ServiceName, $"%{search}%") ||
+                Microsoft.EntityFrameworkCore.EF.Functions.Like(item.DepartmentCode, $"%{search}%") ||
+                Microsoft.EntityFrameworkCore.EF.Functions.Like(item.EmployeeName, $"%{search}%") ||
+                Microsoft.EntityFrameworkCore.EF.Functions.Like(item.VendorName, $"%{search}%") ||
+                (hasAmountFilter && item.Amount == parsedAmount));
+        }
+
+        return await query
+            .OrderBy(item => item.DepartmentCode)
+            .ThenBy(item => item.ServiceName)
+            .Select(item => new EntityWorkspaceListItemDto(
+                item.Id,
+                item.ServiceName,
+                $"{item.DepartmentCode} · {item.VendorName}",
+                new[]
+                {
+                    new EntityWorkspacePropertyDto("Type", "IT Contract"),
+                    new EntityWorkspacePropertyDto("Amount", FormatAmount(item.Amount)),
+                    new EntityWorkspacePropertyDto("Range", $"{FormatDateOnly(item.When)} to {FormatDateOnly(item.EndWhen)}")
+                }))
+            .AsNoTracking()
+            .ToListAsync();
+    }
+
+    private async Task<EntityWorkspaceDetailDto?> GetItContractAsync(Guid id)
+    {
+        var contract =
+            await (
+                from entity in _readDbContext.ItContracts
+                join employee in _readDbContext.Employees on entity.ResponsibleEmployeeId equals employee.Id
+                join vendor in _readDbContext.Vendors on entity.VendorId equals vendor.Id
+                where entity.Id == id
+                select new
+                {
+                    entity.Id,
+                    entity.ServiceName,
+                    entity.DepartmentCode,
+                    entity.When,
+                    entity.EndWhen,
+                    entity.Amount,
+                    entity.ResponsibleEmployeeId,
+                    entity.VendorId,
+                    entity.InternalParticipationId,
+                    entity.ExternalParticipationId,
+                    EmployeeName = employee.Name,
+                    EmployeeEmail = employee.Email,
+                    VendorName = vendor.Name,
+                    VendorEmail = vendor.Email
+                })
+            .AsNoTracking()
+            .SingleOrDefaultAsync();
+
+        if (contract is null)
+        {
+            return null;
+        }
+
+        var domainContract = new ItContract(
+            contract.Id,
+            contract.ServiceName,
+            contract.When,
+            contract.EndWhen!.Value,
+            contract.Amount ?? 0m,
+            contract.DepartmentCode,
+            new AgentId(contract.ResponsibleEmployeeId),
+            new AgentId(contract.VendorId));
+        var monthlyExpenses = domainContract.CalculateMonthlyExpenses();
+
+        return new EntityWorkspaceDetailDto(
+            contract.Id,
+            contract.ServiceName,
+            $"{contract.DepartmentCode} · {contract.VendorName}",
+            new[]
+            {
+                new EntityWorkspacePropertyDto("Department", contract.DepartmentCode),
+                new EntityWorkspacePropertyDto("Vendor", $"{contract.VendorName} ({contract.VendorEmail})"),
+                new EntityWorkspacePropertyDto("Responsible Employee", $"{contract.EmployeeName} ({contract.EmployeeEmail})"),
+                new EntityWorkspacePropertyDto("Start Date", FormatDateOnly(contract.When)),
+                new EntityWorkspacePropertyDto("End Date", FormatDateOnly(contract.EndWhen)),
+                new EntityWorkspacePropertyDto("Prepaid Amount", FormatAmount(contract.Amount)),
+                new EntityWorkspacePropertyDto("Internal Participation", contract.InternalParticipationId.ToString()),
+                new EntityWorkspacePropertyDto("External Participation", contract.ExternalParticipationId.ToString()),
+                new EntityWorkspacePropertyDto("Identifier", contract.Id.ToString()),
+                new EntityWorkspacePropertyDto("Type", "IT Contract")
+            },
+            new Dictionary<string, object?>
+            {
+                ["serviceName"] = contract.ServiceName,
+                ["departmentCode"] = contract.DepartmentCode,
+                ["vendor"] = contract.VendorEmail,
+                ["responsibleEmployee"] = contract.EmployeeEmail,
+                ["startDate"] = contract.When.ToString("O"),
+                ["endDate"] = contract.EndWhen?.ToString("O") ?? string.Empty,
+                ["prepaidAmount"] = contract.Amount
+            },
+            new[]
+            {
+                BuildMonthlyExpenseCollection("monthlyExpenses", "Monthly Expense Allocation", monthlyExpenses)
+            });
+    }
+
+    private async Task<EntityWorkspaceOperationResultDto> CreateItContractAsync(IReadOnlyDictionary<string, string?> values)
+    {
+        var serviceName = GetRequiredValue(values, "serviceName");
+        var departmentCode = GetRequiredValue(values, "departmentCode");
+        var startDate = ParseRequiredDateTimeOffset(values, "startDate");
+        var endDate = ParseRequiredDateTimeOffset(values, "endDate");
+        var prepaidAmount = ParseRequiredDecimal(values, "prepaidAmount");
+        var employee = await ResolveEmployeeAsync(GetRequiredValue(values, "responsibleEmployee"));
+        var vendor = await ResolveVendorAsync(GetRequiredValue(values, "vendor"));
+
+        var id = Guid.NewGuid();
+        var contract = new ItContract(id, serviceName, startDate, endDate, prepaidAmount, departmentCode, employee.Id, vendor.Id);
+
+        await _writeDbContext.ItContracts.AddAsync(contract);
+        await _writeDbContext.SaveChangesAsync();
+        return new EntityWorkspaceOperationResultDto("IT contract created.", id);
+    }
+
+    private async Task<EntityWorkspaceOperationResultDto> UpdateItContractAsync(Guid id, IReadOnlyDictionary<string, string?> values)
+    {
+        var contract = await _writeDbContext.ItContracts.SingleOrDefaultAsync(item => item.Id == (CommitmentId)id);
+
+        if (contract is null)
+        {
+            throw new InvalidOperationException($"IT contract with ID '{id}' was not found.");
+        }
+
+        var serviceName = GetRequiredValue(values, "serviceName");
+        var departmentCode = GetRequiredValue(values, "departmentCode");
+        var startDate = ParseRequiredDateTimeOffset(values, "startDate");
+        var endDate = ParseRequiredDateTimeOffset(values, "endDate");
+        var prepaidAmount = ParseRequiredDecimal(values, "prepaidAmount");
+        var employee = await ResolveEmployeeAsync(GetRequiredValue(values, "responsibleEmployee"));
+        var vendor = await ResolveVendorAsync(GetRequiredValue(values, "vendor"));
+
+        contract.UpdateDetails(serviceName, startDate, endDate, prepaidAmount, departmentCode, employee.Id, vendor.Id);
+        await _writeDbContext.SaveChangesAsync();
+        return new EntityWorkspaceOperationResultDto("IT contract updated.", id);
+    }
+
+    private async Task<EntityWorkspaceOperationResultDto> DeleteItContractAsync(Guid id)
+    {
+        var contract = await _writeDbContext.ItContracts.SingleOrDefaultAsync(item => item.Id == (CommitmentId)id);
+
+        if (contract is null)
+        {
+            throw new InvalidOperationException($"IT contract with ID '{id}' was not found.");
+        }
+
+        _writeDbContext.ItContracts.Remove(contract);
+        await _writeDbContext.SaveChangesAsync();
+        return new EntityWorkspaceOperationResultDto("IT contract deleted.");
+    }
+
+    private Task<IReadOnlyList<EntityWorkspaceListItemDto>> SearchPrepaidItReportAsync(string? searchPhrase)
+    {
+        IReadOnlyList<EntityWorkspaceListItemDto> items =
+        [
+            new EntityWorkspaceListItemDto(
+                PrepaidItExpenseCalculatedReportId,
+                "Prepaid IT Department Report",
+                "Monthly department expense totals across all active IT contracts",
+                new[]
+                {
+                    new EntityWorkspacePropertyDto("Type", "Report")
+                })
+        ];
+
+        return Task.FromResult(items);
+    }
+
+    private async Task<EntityWorkspaceDetailDto?> GetPrepaidItReportAsync(Guid id)
+    {
+        if (!TryGetDaysInMonthForReportId(id, out var daysInMonth))
+        {
+            return null;
+        }
+
+        var contracts = await (
+            from contract in _readDbContext.ItContracts
+            join employee in _readDbContext.Employees on contract.ResponsibleEmployeeId equals employee.Id
+            join vendor in _readDbContext.Vendors on contract.VendorId equals vendor.Id
+            select new ItContractReportContractRow(
+                contract.Id,
+                contract.ServiceName,
+                contract.DepartmentCode,
+                contract.When,
+                contract.EndWhen,
+                contract.Amount,
+                contract.ResponsibleEmployeeId,
+                contract.VendorId,
+                employee.Email,
+                vendor.Email))
+            .AsNoTracking()
+            .ToListAsync();
+
+        var monthlyExpenses = contracts
+            .SelectMany(contract => new ItContract(
+                    contract.Id,
+                    contract.ServiceName,
+                    contract.When,
+                    contract.EndWhen!.Value,
+                    contract.Amount ?? 0m,
+                    contract.DepartmentCode,
+                    new AgentId(contract.EmployeeId),
+                    new AgentId(contract.VendorId))
+                .CalculateMonthlyExpenses(daysInMonth))
+            .GroupBy(expense => new { expense.DepartmentCode, expense.Month })
+            .Select(group => new ContractMonthlyExpense(
+                group.Key.Month,
+                group.Key.DepartmentCode,
+                group.Sum(item => item.Amount),
+                group.Sum(item => item.CoveredDays),
+                group.Average(item => item.PricePerDay)))
+            .OrderBy(item => item.Month)
+            .ThenBy(item => item.DepartmentCode)
+            .ToList();
+
+        var mermaidDiagram = BuildDepartmentExpenseMermaid(monthlyExpenses);
+
+        return new EntityWorkspaceDetailDto(
+            id,
+            "Prepaid IT Department Report",
+            "Monthly department expense totals across all IT contracts",
+            new[]
+            {
+                new EntityWorkspacePropertyDto("Days In Month", FormatDaysInMonth(daysInMonth)),
+                new EntityWorkspacePropertyDto("Contracts Included", contracts.Count.ToString(CultureInfo.InvariantCulture)),
+                new EntityWorkspacePropertyDto("Department Count", monthlyExpenses.Select(item => item.DepartmentCode).Distinct(StringComparer.OrdinalIgnoreCase).Count().ToString(CultureInfo.InvariantCulture)),
+                new EntityWorkspacePropertyDto("Month Count", monthlyExpenses.Select(item => item.Month).Distinct().Count().ToString(CultureInfo.InvariantCulture)),
+                new EntityWorkspacePropertyDto("Mermaid Diagram", mermaidDiagram)
+            },
+            new Dictionary<string, object?>(),
+            new[]
+            {
+                BuildPrepaidItReportOptionsCollection(daysInMonth),
+                BuildMonthlyExpenseCollection("departmentMonthlyExpenses", "Department Monthly Expenses", monthlyExpenses),
+                BuildContractCollection("contracts", "Contracts Included", contracts)
+            });
+    }
+
+    private Task<EntityWorkspaceOperationResultDto> ExecutePrepaidItReportCollectionActionAsync(Guid id, string collectionKey, string actionKey, IReadOnlyDictionary<string, string?> values)
+    {
+        if (!TryGetDaysInMonthForReportId(id, out _))
+        {
+            throw new InvalidOperationException("The requested prepaid IT report was not found.");
+        }
+
+        if (!string.Equals(collectionKey, "reportOptions", StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(actionKey, "generate", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("The requested prepaid IT report action is not supported.");
+        }
+
+        var daysInMonth = ParseDaysInMonth(values);
+        var reportId = GetPrepaidItReportId(daysInMonth);
+        return Task.FromResult(new EntityWorkspaceOperationResultDto(
+            $"Prepaid IT report recalculated using {FormatDaysInMonth(daysInMonth)}.",
+            reportId));
+    }
+
+    private static EntityWorkspaceCollectionSectionDto BuildPrepaidItReportOptionsCollection(DaysInMonth daysInMonth)
+    {
+        return new EntityWorkspaceCollectionSectionDto(
+            "reportOptions",
+            "Calculation Options",
+            "Choose how month lengths should be interpreted when allocating prepaid contract expenses.",
+            new[]
+            {
+                new EntityWorkspaceCollectionItemDto(
+                    "current",
+                    "Current Report Settings",
+                    "The selected option is used for every contract in this report run.",
+                    new[]
+                    {
+                        new EntityWorkspacePropertyDto("Days In Month", FormatDaysInMonth(daysInMonth))
+                    },
+                    Array.Empty<EntityWorkspaceCollectionItemActionDto>())
+            },
+            new EntityWorkspaceActionDefinitionDto(
+                "generate",
+                "Generate Report",
+                "btn btn-dark action-btn",
+                new[]
+                {
+                    new EntityWorkspaceFieldDefinitionDto(
+                        "daysInMonth",
+                        "Days In Month",
+                        EntityWorkspaceFieldKindDto.Select,
+                        true,
+                        DefaultValue: ToDaysInMonthValue(daysInMonth),
+                        Options:
+                        [
+                            new EntityWorkspaceFieldOptionDto(ToDaysInMonthValue(DaysInMonth.Calculated), "Calculated"),
+                            new EntityWorkspaceFieldOptionDto(ToDaysInMonthValue(DaysInMonth.ThirtyDays), "30 days")
+                        ])
+                }));
+    }
+
+    private static EntityWorkspaceCollectionSectionDto BuildMonthlyExpenseCollection(string key, string title, IReadOnlyList<ContractMonthlyExpense> monthlyExpenses)
+    {
+        var items = monthlyExpenses
+            .Select(expense => new EntityWorkspaceCollectionItemDto(
+                $"{expense.DepartmentCode}-{expense.Month:yyyy-MM}",
+                $"{expense.DepartmentCode} · {expense.Month:yyyy-MM}",
+                $"Covered {expense.CoveredDays} day(s)",
+                new[]
+                {
+                    new EntityWorkspacePropertyDto("Amount", expense.Amount.ToString("0.00", CultureInfo.InvariantCulture)),
+                    new EntityWorkspacePropertyDto("Price/Day", expense.PricePerDay.ToString("0.########", CultureInfo.InvariantCulture))
+                },
+                Array.Empty<EntityWorkspaceCollectionItemActionDto>()))
+            .ToList();
+
+        return new EntityWorkspaceCollectionSectionDto(
+            key,
+            title,
+            "No monthly expense rows are available.",
+            items);
+    }
+
+    private static EntityWorkspaceCollectionSectionDto BuildContractCollection(string key, string title, IReadOnlyList<ItContractReportContractRow> contracts)
+    {
+        var items = contracts
+            .Select(contract => new EntityWorkspaceCollectionItemDto(
+                contract.Id.ToString(),
+                contract.ServiceName,
+                $"{contract.DepartmentCode} · {FormatDateOnly(contract.When)} to {FormatDateOnly(contract.EndWhen)}",
+                new[]
+                {
+                    new EntityWorkspacePropertyDto("Prepaid Amount", FormatAmount(contract.Amount)),
+                    new EntityWorkspacePropertyDto("Identifier", contract.Id.ToString())
+                },
+                Array.Empty<EntityWorkspaceCollectionItemActionDto>()))
+            .ToList();
+
+        return new EntityWorkspaceCollectionSectionDto(
+            key,
+            title,
+            "No IT contracts are currently available.",
+            items);
+    }
+
+    private static string BuildDepartmentExpenseMermaid(IReadOnlyList<ContractMonthlyExpense> monthlyExpenses)
+    {
+        if (monthlyExpenses.Count == 0)
+        {
+            return "xychart-beta\n    title \"No prepaid IT expenses\"\n    x-axis []\n    y-axis \"Amount\" 0 --> 0";
+        }
+
+        var months = monthlyExpenses
+            .Select(item => item.Month)
+            .Distinct()
+            .OrderBy(month => month)
+            .ToList();
+
+        var departments = monthlyExpenses
+            .Select(item => item.DepartmentCode)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(code => code)
+            .ToList();
+
+        var maxAmount = monthlyExpenses.Max(item => item.Amount);
+        var lines = new List<string>
+        {
+            "xychart-beta",
+            "    title \"Prepaid IT Expenses by Department\"",
+            $"    x-axis [{string.Join(", ", months.Select(month => $"\"{month:yyyy-MM}\""))}]",
+            $"    y-axis \"Amount\" 0 --> {Math.Ceiling(maxAmount)}"
+        };
+
+        foreach (var department in departments)
+        {
+            var series = months
+                .Select(month => monthlyExpenses
+                    .Where(item => item.DepartmentCode.Equals(department, StringComparison.OrdinalIgnoreCase) && item.Month == month)
+                    .Sum(item => item.Amount)
+                    .ToString("0.00", CultureInfo.InvariantCulture));
+
+            lines.Add($"    line \"{department}\" [{string.Join(", ", series)}]");
+        }
+
+        return string.Join(Environment.NewLine, lines);
+    }
+
+    private static string ToDaysInMonthValue(DaysInMonth daysInMonth)
+        => daysInMonth switch
+        {
+            DaysInMonth.Calculated => "calculated",
+            DaysInMonth.ThirtyDays => "30days",
+            _ => throw new InvalidOperationException("Unsupported days-in-month option.")
+        };
+
+    private static DaysInMonth ParseDaysInMonth(IReadOnlyDictionary<string, string?> values)
+    {
+        var value = GetRequiredValue(values, "daysInMonth");
+        return value.Trim().ToLowerInvariant() switch
+        {
+            "calculated" => DaysInMonth.Calculated,
+            "30days" => DaysInMonth.ThirtyDays,
+            _ => throw new InvalidOperationException($"DaysInMonth value '{value}' is not supported.")
+        };
+    }
+
+    private static bool TryGetDaysInMonthForReportId(Guid id, out DaysInMonth daysInMonth)
+    {
+        if (id == PrepaidItExpenseCalculatedReportId)
+        {
+            daysInMonth = DaysInMonth.Calculated;
+            return true;
+        }
+
+        if (id == PrepaidItExpenseThirtyDayReportId)
+        {
+            daysInMonth = DaysInMonth.ThirtyDays;
+            return true;
+        }
+
+        daysInMonth = default;
+        return false;
+    }
+
+    private static Guid GetPrepaidItReportId(DaysInMonth daysInMonth)
+        => daysInMonth switch
+        {
+            DaysInMonth.Calculated => PrepaidItExpenseCalculatedReportId,
+            DaysInMonth.ThirtyDays => PrepaidItExpenseThirtyDayReportId,
+            _ => throw new InvalidOperationException("Unsupported days-in-month option.")
+        };
+
+    private static string FormatDaysInMonth(DaysInMonth daysInMonth)
+        => daysInMonth switch
+        {
+            DaysInMonth.Calculated => "Calculated",
+            DaysInMonth.ThirtyDays => "30 days",
+            _ => throw new InvalidOperationException("Unsupported days-in-month option.")
+        };
+
     private async Task<IReadOnlyList<EntityWorkspaceListItemDto>> SearchAgentsAsync(string? searchPhrase)
     {
         var customers = await SearchAgentSubtypeAsync<CustomerReadModel>(searchPhrase, "Customer");
@@ -1110,6 +1597,34 @@ internal sealed class EntityWorkspaceBackendService : IEntityWorkspaceBackendSer
         return (new ResourceId(match.Id), match.Name);
     }
 
+    private async Task<(AgentId Id, string Name, string Email)> ResolveVendorAsync(string value)
+    {
+        var search = value.Trim();
+        var hasId = Guid.TryParse(search, out var id);
+
+        var matches = await _readDbContext.Vendors
+            .Where(vendor =>
+                (hasId && vendor.Id == id) ||
+                vendor.Email == search ||
+                vendor.Name == search)
+            .Select(vendor => new { vendor.Id, vendor.Name, vendor.Email })
+            .AsNoTracking()
+            .ToListAsync();
+
+        if (matches.Count == 0)
+        {
+            throw new InvalidOperationException($"Vendor '{search}' was not found.");
+        }
+
+        if (matches.Count > 1)
+        {
+            throw new InvalidOperationException($"Vendor reference '{search}' is ambiguous. Use email or ID.");
+        }
+
+        var match = matches[0];
+        return (new AgentId(match.Id), match.Name, match.Email);
+    }
+
     private static DateTimeOffset ParseRequiredDateTimeOffset(IReadOnlyDictionary<string, string?> values, string key)
     {
         var value = GetRequiredValue(values, key);
@@ -1159,6 +1674,12 @@ internal sealed class EntityWorkspaceBackendService : IEntityWorkspaceBackendSer
 
     private static string FormatDateTime(DateTimeOffset value)
         => value.ToString("yyyy-MM-dd HH:mm zzz");
+
+    private static string FormatDateOnly(DateTimeOffset value)
+        => value.ToString("yyyy-MM-dd");
+
+    private static string FormatDateOnly(DateTimeOffset? value)
+        => value?.ToString("yyyy-MM-dd") ?? "None";
 
     private static string FormatOptionalDateTime(DateTimeOffset? value)
         => value?.ToString("yyyy-MM-dd HH:mm zzz") ?? "None";
@@ -1337,6 +1858,18 @@ internal sealed class EntityWorkspaceBackendService : IEntityWorkspaceBackendSer
                 convertedArgument = new ResourceName(value);
                 return true;
             }
+
+            if (targetType == typeof(ContractDepartmentCode))
+            {
+                convertedArgument = new ContractDepartmentCode(value);
+                return true;
+            }
+
+            if (targetType == typeof(ContractServiceName))
+            {
+                convertedArgument = new ContractServiceName(value);
+                return true;
+            }
         }
 
         convertedArgument = null;
@@ -1353,3 +1886,15 @@ internal sealed record EntityWorkspaceBackendDescriptor(
     Func<EntityWorkspaceBackendService, Guid, Task<EntityWorkspaceOperationResultDto>>? DeleteAsync,
     Func<EntityWorkspaceBackendService, Guid, string, string, IReadOnlyDictionary<string, string?>, Task<EntityWorkspaceOperationResultDto>>? ExecuteCollectionActionAsync = null,
     Func<EntityWorkspaceBackendService, Guid, string, string, string, Task<EntityWorkspaceOperationResultDto>>? ExecuteCollectionItemActionAsync = null);
+
+internal sealed record ItContractReportContractRow(
+    Guid Id,
+    string ServiceName,
+    string DepartmentCode,
+    DateTimeOffset When,
+    DateTimeOffset? EndWhen,
+    decimal? Amount,
+    Guid EmployeeId,
+    Guid VendorId,
+    string EmployeeEmail,
+    string VendorEmail);

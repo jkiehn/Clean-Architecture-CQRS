@@ -581,4 +581,153 @@ public class EntityWorkspaceBackendServiceTests
         storedLine.Quantity.ShouldBe(2m);
         storedLine.UnitPrice.ShouldBe(12.5m);
     }
+
+    [Fact]
+    public async Task CreateAsync_Creates_ItContract()
+    {
+        await using var connection = new SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+
+        var writeOptions = new DbContextOptionsBuilder<WriteDbContext>()
+            .UseSqlite(connection)
+            .Options;
+        var readOptions = new DbContextOptionsBuilder<ReadDbContext>()
+            .UseSqlite(connection)
+            .Options;
+
+        var employeeId = Guid.NewGuid();
+        var vendorId = Guid.NewGuid();
+
+        await using (var arrangeContext = new WriteDbContext(writeOptions))
+        {
+            await arrangeContext.Database.EnsureCreatedAsync();
+            arrangeContext.Employees.Add(new Employee(employeeId, "Emma", "emma@example.com", "444-44-4444"));
+            arrangeContext.Vendors.Add(new Vendor(vendorId, "Contoso Software", "vendor@contoso.example"));
+            await arrangeContext.SaveChangesAsync();
+        }
+
+        await using var readContext = new ReadDbContext(readOptions);
+        await using var writeContext = new WriteDbContext(writeOptions);
+        IEntityWorkspaceBackendService service = new EntityWorkspaceBackendService(readContext, writeContext);
+
+        var result = await service.CreateAsync("it-contracts", new Dictionary<string, string?>
+        {
+            ["serviceName"] = "Microsoft 365 E5",
+            ["departmentCode"] = "FIN",
+            ["startDate"] = "2026-01-15",
+            ["endDate"] = "2026-03-14",
+            ["prepaidAmount"] = "590",
+            ["responsibleEmployee"] = "emma@example.com",
+            ["vendor"] = "vendor@contoso.example"
+        });
+
+        result.EntityId.ShouldNotBeNull();
+        result.Message.ShouldBe("IT contract created.");
+
+        await using var assertReadContext = new ReadDbContext(readOptions);
+        var storedContract = await assertReadContext.ItContracts.SingleAsync();
+        storedContract.ServiceName.ShouldBe("Microsoft 365 E5");
+        storedContract.DepartmentCode.ShouldBe("FIN");
+        storedContract.ResponsibleEmployeeId.ShouldBe(employeeId);
+        storedContract.VendorId.ShouldBe(vendorId);
+        storedContract.Amount.ShouldBe(590m);
+    }
+
+    [Fact]
+    public async Task GetAsync_Returns_Prepaid_It_Report_With_Department_Rows()
+    {
+        await using var connection = new SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+
+        var writeOptions = new DbContextOptionsBuilder<WriteDbContext>()
+            .UseSqlite(connection)
+            .Options;
+        var readOptions = new DbContextOptionsBuilder<ReadDbContext>()
+            .UseSqlite(connection)
+            .Options;
+
+        var employeeId = Guid.NewGuid();
+        var vendorId = Guid.NewGuid();
+        var reportId = Guid.Parse("9D8F7E27-56AF-4A41-9965-65B02689AE43");
+
+        await using (var arrangeContext = new WriteDbContext(writeOptions))
+        {
+            await arrangeContext.Database.EnsureCreatedAsync();
+            arrangeContext.Employees.Add(new Employee(employeeId, "Emma", "emma@example.com", "444-44-4444"));
+            arrangeContext.Vendors.Add(new Vendor(vendorId, "Contoso Software", "vendor@contoso.example"));
+            arrangeContext.ItContracts.Add(new ItContract(Guid.NewGuid(), "Microsoft 365 E5", new DateTimeOffset(2026, 1, 15, 0, 0, 0, TimeSpan.Zero), new DateTimeOffset(2026, 3, 14, 0, 0, 0, TimeSpan.Zero), 590m, "FIN", employeeId, vendorId));
+            arrangeContext.ItContracts.Add(new ItContract(Guid.NewGuid(), "Adobe CC", new DateTimeOffset(2026, 2, 1, 0, 0, 0, TimeSpan.Zero), new DateTimeOffset(2026, 2, 28, 0, 0, 0, TimeSpan.Zero), 280m, "HR", employeeId, vendorId));
+            await arrangeContext.SaveChangesAsync();
+        }
+
+        await using var readContext = new ReadDbContext(readOptions);
+        await using var writeContext = new WriteDbContext(writeOptions);
+        IEntityWorkspaceBackendService service = new EntityWorkspaceBackendService(readContext, writeContext);
+
+        var detail = await service.GetAsync("prepaid-it-report", reportId);
+
+        detail.ShouldNotBeNull();
+        detail!.Summary.ShouldContain(property => property.Label == "Days In Month" && property.Value == "Calculated");
+        detail!.Summary.ShouldContain(property => property.Label == "Mermaid Diagram" && property.Value.Contains("xychart-beta"));
+        detail.Collections.Single(collection => collection.Key == "reportOptions")
+            .CreateAction.ShouldNotBeNull();
+        detail.Collections.Single(collection => collection.Key == "departmentMonthlyExpenses")
+            .Items.ShouldContain(item => item.Title.Contains("FIN") && item.Title.Contains("2026-02"));
+    }
+
+    [Fact]
+    public async Task ExecuteCollectionActionAsync_For_Prepaid_It_Report_Returns_ThirtyDay_Report_Variant()
+    {
+        await using var connection = new SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+
+        var writeOptions = new DbContextOptionsBuilder<WriteDbContext>()
+            .UseSqlite(connection)
+            .Options;
+        var readOptions = new DbContextOptionsBuilder<ReadDbContext>()
+            .UseSqlite(connection)
+            .Options;
+
+        var employeeId = Guid.NewGuid();
+        var vendorId = Guid.NewGuid();
+        var calculatedReportId = Guid.Parse("9D8F7E27-56AF-4A41-9965-65B02689AE43");
+
+        await using (var arrangeContext = new WriteDbContext(writeOptions))
+        {
+            await arrangeContext.Database.EnsureCreatedAsync();
+            arrangeContext.Employees.Add(new Employee(employeeId, "Emma", "emma@example.com", "444-44-4444"));
+            arrangeContext.Vendors.Add(new Vendor(vendorId, "Contoso Software", "vendor@contoso.example"));
+            arrangeContext.ItContracts.Add(new ItContract(Guid.NewGuid(), "Leap Contract", new DateTimeOffset(2024, 1, 15, 0, 0, 0, TimeSpan.Zero), new DateTimeOffset(2024, 4, 14, 0, 0, 0, TimeSpan.Zero), 900m, "FIN", employeeId, vendorId));
+            await arrangeContext.SaveChangesAsync();
+        }
+
+        await using var readContext = new ReadDbContext(readOptions);
+        await using var writeContext = new WriteDbContext(writeOptions);
+        IEntityWorkspaceBackendService service = new EntityWorkspaceBackendService(readContext, writeContext);
+
+        var actionResult = await service.ExecuteCollectionActionAsync("prepaid-it-report", calculatedReportId, "reportOptions", "generate", new Dictionary<string, string?>
+        {
+            ["daysInMonth"] = "30days"
+        });
+
+        actionResult.EntityId.ShouldNotBeNull();
+        actionResult.Message.ShouldContain("30 days");
+
+        var detail = await service.GetAsync("prepaid-it-report", actionResult.EntityId.Value);
+
+        detail.ShouldNotBeNull();
+        detail!.Summary.ShouldContain(property => property.Label == "Days In Month" && property.Value == "30 days");
+
+        var february = detail.Collections
+            .Single(collection => collection.Key == "departmentMonthlyExpenses")
+            .Items
+            .Single(item => item.Title.Contains("FIN") && item.Title.Contains("2024-02"));
+        var march = detail.Collections
+            .Single(collection => collection.Key == "departmentMonthlyExpenses")
+            .Items
+            .Single(item => item.Title.Contains("FIN") && item.Title.Contains("2024-03"));
+
+        february.Meta.Single(meta => meta.Label == "Amount").Value.ShouldBe("300.00");
+        march.Meta.Single(meta => meta.Label == "Amount").Value.ShouldBe("300.00");
+    }
 }

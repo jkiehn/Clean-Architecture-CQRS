@@ -133,7 +133,14 @@ else
                     {
                         <div class="detail-card">
                             <span class="detail-label">@property.Label</span>
-                            <strong>@property.Value</strong>
+                            @if (property.Label.Contains("Diagram", StringComparison.OrdinalIgnoreCase))
+                            {
+                                <pre class="diagram-block">@property.Value</pre>
+                            }
+                            else
+                            {
+                                <strong>@property.Value</strong>
+                            }
                         </div>
                     }
                 </div>
@@ -419,7 +426,7 @@ else
             var result = await _service.ExecuteCollectionActionAsync(_selectedDetail.Id, collection.Key, collection.CreateAction.Key, values);
             InitializeActionValues(collection.CreateAction, values);
             await LoadItemsAsync();
-            await LoadDetailAsync(_selectedDetail.Id);
+            await LoadDetailAsync(result.EntityId ?? _selectedDetail.Id);
             _statusMessage = result.Message;
         });
     }

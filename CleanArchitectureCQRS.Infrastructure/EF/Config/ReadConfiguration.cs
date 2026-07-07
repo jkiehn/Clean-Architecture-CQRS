@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace CleanArchitectureCQRS.Infrastructure.EF.Config;
 
-internal sealed class ReadConfiguration : IEntityTypeConfiguration<SampleEntityReadModel>, IEntityTypeConfiguration<SampleEntityItemReadModel>, IEntityTypeConfiguration<CustomerReadModel>, IEntityTypeConfiguration<VendorReadModel>, IEntityTypeConfiguration<EmployeeReadModel>, IEntityTypeConfiguration<ItemReadModel>, IEntityTypeConfiguration<SaleReadModel>, IEntityTypeConfiguration<SalesLineReadModel>, IEntityTypeConfiguration<SalesOrderReadModel>, IEntityTypeConfiguration<SalesOrderLineReadModel>
+internal sealed class ReadConfiguration : IEntityTypeConfiguration<SampleEntityReadModel>, IEntityTypeConfiguration<SampleEntityItemReadModel>, IEntityTypeConfiguration<CustomerReadModel>, IEntityTypeConfiguration<VendorReadModel>, IEntityTypeConfiguration<EmployeeReadModel>, IEntityTypeConfiguration<ItemReadModel>, IEntityTypeConfiguration<SaleReadModel>, IEntityTypeConfiguration<SalesLineReadModel>, IEntityTypeConfiguration<SalesOrderReadModel>, IEntityTypeConfiguration<SalesOrderLineReadModel>, IEntityTypeConfiguration<ItContractReadModel>
 {
     public void Configure(EntityTypeBuilder<SampleEntityReadModel> builder)
     {
@@ -82,6 +82,12 @@ internal sealed class ReadConfiguration : IEntityTypeConfiguration<SampleEntityR
         builder.Property(line => line.Quantity).IsRequired();
     }
 
+    public void Configure(EntityTypeBuilder<ItContractReadModel> builder)
+    {
+        ConfigureContract(builder, "ItContracts");
+        builder.Property(contract => contract.ServiceName).IsRequired();
+    }
+
     private static void ConfigureAgent<TAgent>(EntityTypeBuilder<TAgent> builder, string tableName) where TAgent : AgentReadModelBase
     {
         builder.ToTable(tableName);
@@ -102,6 +108,16 @@ internal sealed class ReadConfiguration : IEntityTypeConfiguration<SampleEntityR
 
     private static void ConfigureCommitment<TCommitment>(EntityTypeBuilder<TCommitment> builder, string tableName) where TCommitment : CommitmentReadModelBase
         => ConfigureOccurrent(builder, tableName);
+
+    private static void ConfigureContract<TContract>(EntityTypeBuilder<TContract> builder, string tableName) where TContract : ContractReadModelBase
+    {
+        ConfigureCommitment(builder, tableName);
+        builder.Property(contract => contract.DepartmentCode).IsRequired();
+        builder.Property(contract => contract.InternalParticipationId).IsRequired();
+        builder.Property(contract => contract.ResponsibleEmployeeId).IsRequired();
+        builder.Property(contract => contract.ExternalParticipationId).IsRequired();
+        builder.Property(contract => contract.VendorId).IsRequired();
+    }
 
     private static void ConfigureOccurrent<TOccurrent>(EntityTypeBuilder<TOccurrent> builder, string tableName) where TOccurrent : OccurrentReadModelBase
     {
