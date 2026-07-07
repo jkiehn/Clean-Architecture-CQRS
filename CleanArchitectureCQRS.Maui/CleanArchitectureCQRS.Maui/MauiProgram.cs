@@ -18,6 +18,7 @@ public static class MauiProgram
             });
 
         builder.Services.AddSingleton<IFormFactor, FormFactor>();
+        builder.Services.AddSingleton<ILocalePreferenceService, DeviceLocalePreferenceService>();
         builder.Services.AddHttpClient<SampleEntityService>(client =>
         {
             client.BaseAddress = new Uri(ApiBaseAddressResolver.GetDefault());

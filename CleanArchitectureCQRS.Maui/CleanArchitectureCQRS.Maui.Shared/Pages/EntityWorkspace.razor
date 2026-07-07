@@ -485,8 +485,10 @@ else
             case EntityFieldKind.Number:
                 builder.OpenElement(seq++, "input");
                 builder.AddAttribute(seq++, "class", "form-control");
-                builder.AddAttribute(seq++, "type", "number");
+                builder.AddAttribute(seq++, "type", "text");
+                builder.AddAttribute(seq++, "inputmode", "decimal");
                 builder.AddAttribute(seq++, "value", GetFieldValue(values, field));
+                builder.AddAttribute(seq++, "placeholder", field.Placeholder);
                 builder.AddAttribute(seq++, "oninput", EventCallback.Factory.Create<ChangeEventArgs>(this, args => values[field.Key] = args.Value?.ToString()));
                 builder.CloseElement();
                 break;

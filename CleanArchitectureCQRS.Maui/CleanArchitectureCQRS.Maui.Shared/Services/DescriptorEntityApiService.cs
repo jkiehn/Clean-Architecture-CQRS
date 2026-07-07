@@ -2,7 +2,7 @@ namespace CleanArchitectureCQRS.Maui.Shared.Services;
 
 public sealed class DescriptorEntityApiService : ApiServiceBase
 {
-    public DescriptorEntityApiService(HttpClient httpClient) : base(httpClient)
+    public DescriptorEntityApiService(HttpClient httpClient, ILocalePreferenceService localePreferenceService) : base(httpClient, localePreferenceService)
     {
     }
 

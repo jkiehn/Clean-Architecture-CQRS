@@ -8,6 +8,7 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 builder.Services.AddSingleton<IFormFactor, FormFactor>();
+builder.Services.AddScoped<ILocalePreferenceService, BrowserLocalePreferenceService>();
 builder.Services.AddHttpClient<SampleEntityService>(client =>
 {
     var apiBaseUrl = builder.Configuration["ApiBaseUrl"] ?? ApiBaseAddressResolver.DefaultApiBaseAddress;

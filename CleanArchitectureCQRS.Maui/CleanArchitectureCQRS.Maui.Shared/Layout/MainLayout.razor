@@ -1,4 +1,6 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
+@implements IDisposable
+@inject ILocalePreferenceService LocalePreferenceService
 
 <div class="page">
     <div class="sidebar">
@@ -8,10 +10,29 @@
     <main>
         <div class="top-row px-4">
             <span class="top-row-title">Entity operations</span>
+            <div class="top-row-tools">
+                <label class="locale-picker-label" for="locale-picker">Format</label>
+                <select id="locale-picker"
+                        class="form-select locale-picker"
+                        value="@LocalePreferenceService.CurrentCultureName"
+                        @onchange="OnLocaleChanged">
+                    @foreach (var locale in LocalePreferenceService.SupportedLocales)
+                    {
+                        <option value="@locale.CultureName">@locale.Label</option>
+                    }
+                </select>
+            </div>
         </div>
 
         <article class="content px-4">
-            @Body
+            @if (_isReady)
+            {
+                @Body
+            }
+            else
+            {
+                <p class="layout-loading">Loading formatting preferences...</p>
+            }
         </article>
     </main>
 </div>
@@ -21,3 +42,37 @@
     <a href="." class="reload">Reload</a>
     <span class="dismiss">🗙</span>
 </div>
+
+@code {
+    private bool _isReady;
+
+    protected override void OnInitialized()
+    {
+        LocalePreferenceService.Changed += OnLocalePreferenceChanged;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        await LocalePreferenceService.InitializeAsync();
+        _isReady = true;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task OnLocaleChanged(ChangeEventArgs args)
+    {
+        await LocalePreferenceService.SetCultureAsync(args.Value?.ToString() ?? string.Empty);
+    }
+
+    private void OnLocalePreferenceChanged()
+        => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        LocalePreferenceService.Changed -= OnLocalePreferenceChanged;
+    }
+}

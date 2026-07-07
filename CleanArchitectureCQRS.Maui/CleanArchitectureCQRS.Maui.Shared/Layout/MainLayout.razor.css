@@ -33,9 +33,46 @@ main {
     font-weight: 700;
 }
 
+.top-row-tools {
+    align-items: center;
+    display: flex;
+    gap: 0.6rem;
+}
+
+.locale-picker-label {
+    color: #4b5f73;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.locale-picker {
+    font-size: 0.9rem;
+    max-width: 16rem;
+    min-width: 13rem;
+}
+
+.layout-loading {
+    color: #4b5f73;
+    padding: 2rem 0;
+}
+
 @media (max-width: 640.98px) {
     .top-row {
         justify-content: space-between;
+    }
+
+    .top-row-tools {
+        gap: 0.4rem;
+    }
+
+    .locale-picker-label {
+        display: none;
+    }
+
+    .locale-picker {
+        max-width: 10rem;
+        min-width: 10rem;
     }
 }
 

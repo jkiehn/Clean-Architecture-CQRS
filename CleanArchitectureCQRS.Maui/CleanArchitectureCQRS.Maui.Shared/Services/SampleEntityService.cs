@@ -2,7 +2,7 @@ namespace CleanArchitectureCQRS.Maui.Shared.Services;
 
 public class SampleEntityService : ApiServiceBase
 {
-    public SampleEntityService(HttpClient httpClient) : base(httpClient)
+    public SampleEntityService(HttpClient httpClient, ILocalePreferenceService localePreferenceService) : base(httpClient, localePreferenceService)
     {
     }
 

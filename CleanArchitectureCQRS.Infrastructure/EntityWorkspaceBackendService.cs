@@ -962,7 +962,7 @@ internal sealed class EntityWorkspaceBackendService : IEntityWorkspaceBackendSer
                 {
                     ["when"] = payment.When.ToString("O"),
                     ["endWhen"] = payment.EndWhen?.ToString("O") ?? string.Empty,
-                    ["amount"] = payment.Amount?.ToString("0.##", CultureInfo.InvariantCulture) ?? string.Empty,
+                    ["amount"] = payment.Amount?.ToString("0.##", CultureInfo.CurrentCulture) ?? string.Empty,
                     ["customer"] = payment.CustomerEmail,
                     ["cash"] = payment.CashResourceId.ToString()
                 },
@@ -1947,8 +1947,8 @@ internal sealed class EntityWorkspaceBackendService : IEntityWorkspaceBackendSer
                 $"Covered {expense.CoveredDays} day(s)",
                 new[]
                 {
-                    new EntityWorkspacePropertyDto("Amount", expense.Amount.ToString("0.00", CultureInfo.InvariantCulture)),
-                    new EntityWorkspacePropertyDto("Price/Day", expense.PricePerDay.ToString("0.########", CultureInfo.InvariantCulture))
+                    new EntityWorkspacePropertyDto("Amount", expense.Amount.ToString("0.00", CultureInfo.CurrentCulture)),
+                    new EntityWorkspacePropertyDto("Price/Day", expense.PricePerDay.ToString("0.########", CultureInfo.CurrentCulture))
                 },
                 Array.Empty<EntityWorkspaceCollectionItemActionDto>()))
             .ToList();
@@ -2317,22 +2317,22 @@ internal sealed class EntityWorkspaceBackendService : IEntityWorkspaceBackendSer
     }
 
     private static string FormatDateTime(DateTimeOffset value)
-        => value.ToString("yyyy-MM-dd HH:mm zzz");
+        => value.ToString("g", CultureInfo.CurrentCulture);
 
     private static string FormatDateOnly(DateTimeOffset value)
-        => value.ToString("yyyy-MM-dd");
+        => value.ToString("d", CultureInfo.CurrentCulture);
 
     private static string FormatDateOnly(DateTimeOffset? value)
-        => value?.ToString("yyyy-MM-dd") ?? "None";
+        => value?.ToString("d", CultureInfo.CurrentCulture) ?? "None";
 
     private static string FormatOptionalDateTime(DateTimeOffset? value)
-        => value?.ToString("yyyy-MM-dd HH:mm zzz") ?? "None";
+        => value?.ToString("g", CultureInfo.CurrentCulture) ?? "None";
 
     private static string FormatAmount(decimal? amount)
-        => amount?.ToString("0.##", CultureInfo.InvariantCulture) ?? "None";
+        => amount?.ToString("0.##", CultureInfo.CurrentCulture) ?? "None";
 
     private static string FormatNumber(decimal value)
-        => value.ToString("0.##", CultureInfo.InvariantCulture);
+        => value.ToString("0.##", CultureInfo.CurrentCulture);
 
     private static bool TryParseDateTimeExpression(string value, out DateTimeOffset result)
     {

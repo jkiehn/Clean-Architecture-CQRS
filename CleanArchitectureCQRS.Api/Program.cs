@@ -3,6 +3,7 @@ using CleanArchitectureCQRS.Infrastructure;
 using CleanArchitectureCQRS.Infrastructure.EF;
 using CleanArchitectureCQRS.Shared;
 using Serilog;
+using System.Globalization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -34,6 +35,28 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.Use(async (context, next) =>
+{
+    if (context.Request.Headers.TryGetValue("X-Entity-Ui-Culture", out var cultureHeader))
+    {
+        var cultureName = cultureHeader.ToString();
+
+        if (!string.IsNullOrWhiteSpace(cultureName))
+        {
+            try
+            {
+                var culture = CultureInfo.GetCultureInfo(cultureName);
+                CultureInfo.CurrentCulture = culture;
+                CultureInfo.CurrentUICulture = culture;
+            }
+            catch (CultureNotFoundException)
+            {
+            }
+        }
+    }
+
+    await next();
+});
 app.UseShared();
 
 
