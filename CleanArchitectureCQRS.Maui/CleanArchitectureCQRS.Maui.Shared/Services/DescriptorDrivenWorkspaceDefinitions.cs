@@ -62,6 +62,42 @@ public static class DescriptorDrivenWorkspaceDefinitions
             new EntityFieldDefinition("name", "Name", Required: true, Placeholder: "Resource name")
         });
 
+    private static readonly EntityActionDefinition CreateCustomerPaymentAction = new(
+        "create",
+        "Create",
+        "btn btn-primary action-btn",
+        new[]
+        {
+            new EntityFieldDefinition("when", "When", EntityFieldKind.DateTime, Required: true, Placeholder: "N, T, +1d, or 2026-07-03T14:30:00+00:00", DefaultValue: "N"),
+            new EntityFieldDefinition("endWhen", "End When", EntityFieldKind.DateTime, Placeholder: "Optional"),
+            new EntityFieldDefinition("amount", "Amount", EntityFieldKind.Number, Required: true, Placeholder: "125.50"),
+            new EntityFieldDefinition("customer", "Customer", Required: true, Placeholder: "Customer email, name, or id", Lookup: new EntityLookupDefinition("customers", ValueSource: EntityLookupValueSource.Subtitle)),
+            new EntityFieldDefinition("cash", "Cash", Required: true, Placeholder: "Cash name or id", Lookup: new EntityLookupDefinition("cash"))
+        });
+
+    private static readonly EntityActionDefinition EditCustomerPaymentAction = new(
+        "edit",
+        "Save changes",
+        "btn btn-dark action-btn",
+        new[]
+        {
+            new EntityFieldDefinition("when", "When", EntityFieldKind.DateTime, Required: true, Placeholder: "N, T, +1d, or 2026-07-03T14:30:00+00:00"),
+            new EntityFieldDefinition("endWhen", "End When", EntityFieldKind.DateTime, Placeholder: "Optional"),
+            new EntityFieldDefinition("amount", "Amount", EntityFieldKind.Number, Required: true, Placeholder: "125.50"),
+            new EntityFieldDefinition("customer", "Customer", Required: true, Placeholder: "Customer email, name, or id", Lookup: new EntityLookupDefinition("customers", ValueSource: EntityLookupValueSource.Subtitle)),
+            new EntityFieldDefinition("cash", "Cash", Required: true, Placeholder: "Cash name or id", Lookup: new EntityLookupDefinition("cash"))
+        });
+
+    private static readonly EntityActionDefinition CreatePaysForAction = new(
+        "create",
+        "Create",
+        "btn btn-primary action-btn",
+        new[]
+        {
+            new EntityFieldDefinition("sale", "Sale", Required: true, Placeholder: "Sale id", Lookup: new EntityLookupDefinition("sales")),
+            new EntityFieldDefinition("customerPayment", "Customer Payment", Required: true, Placeholder: "Customer payment id", Lookup: new EntityLookupDefinition("customer-payments"))
+        });
+
     private static readonly EntityActionDefinition CreateSaleAction = new(
         "create",
         "Create",
@@ -155,6 +191,18 @@ public static class DescriptorDrivenWorkspaceDefinitions
             EditResourceSubtypeAction,
             "Delete"),
         new EntityDescriptor(
+            "cash",
+            "Cash",
+            "Cash",
+            "Create, inspect, update, and remove cash resources.",
+            "bi-cash-stack",
+            "Search cash resources by name",
+            "No cash resources found yet. Create the first cash resource from the panel on the right.",
+            16,
+            CreateResourceSubtypeAction,
+            EditResourceSubtypeAction,
+            "Delete"),
+        new EntityDescriptor(
             "customers",
             "Customer",
             "Customers",
@@ -196,11 +244,35 @@ public static class DescriptorDrivenWorkspaceDefinitions
             "Sales",
             "Create, inspect, update, and remove sales events.",
             "bi-currency-dollar",
-            "Search sales by employee, customer, or amount",
+            "Search sales by employee, customer, or amount. Use the Payments section for cash sale commands.",
             "No sales found yet. Create the first sale from the panel on the right.",
             28,
             CreateSaleAction,
             EditSaleAction,
+            "Delete"),
+        new EntityDescriptor(
+            "customer-payments",
+            "Customer Payment",
+            "Customer Payments",
+            "Create, inspect, update, and remove customer payment events.",
+            "bi-wallet2",
+            "Search customer payments by customer, cash, or amount",
+            "No customer payments found yet. Create the first payment from the panel on the right.",
+            28,
+            CreateCustomerPaymentAction,
+            EditCustomerPaymentAction,
+            "Delete"),
+        new EntityDescriptor(
+            "pays-for",
+            "Pays For",
+            "Pays For",
+            "Create, inspect, and remove links between sales and customer payments.",
+            "bi-link-45deg",
+            "Search pays-for links by customer or identifier",
+            "No pays-for links found yet. Create the first link from the panel on the right.",
+            28,
+            CreatePaysForAction,
+            null,
             "Delete"),
         new EntityDescriptor(
             "sales-orders",

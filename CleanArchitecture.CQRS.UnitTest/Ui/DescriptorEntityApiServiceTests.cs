@@ -53,7 +53,7 @@ public class DescriptorEntityApiServiceTests
     public void Definitions_Expose_Current_Generic_Workspaces()
     {
         DescriptorDrivenWorkspaceDefinitions.All.Select(descriptor => descriptor.Key)
-            .ShouldBe(["items", "customers", "vendors", "employees", "sales", "sales-orders", "it-contracts", "prepaid-it-report", "agents"]);
+            .ShouldBe(["items", "cash", "customers", "vendors", "employees", "sales", "customer-payments", "pays-for", "sales-orders", "it-contracts", "prepaid-it-report", "agents"]);
 
         var employeeDescriptor = DescriptorDrivenWorkspaceDefinitions.All.Single(descriptor => descriptor.Key == "employees");
         employeeDescriptor.CreateAction.ShouldNotBeNull();
@@ -64,6 +64,16 @@ public class DescriptorEntityApiServiceTests
         saleDescriptor.CreateAction.ShouldNotBeNull();
         saleDescriptor.CreateAction!.Fields!.Select(field => field.Key)
             .ShouldBe(["when", "endWhen", "employee", "customer"]);
+
+        var customerPaymentDescriptor = DescriptorDrivenWorkspaceDefinitions.All.Single(descriptor => descriptor.Key == "customer-payments");
+        customerPaymentDescriptor.CreateAction.ShouldNotBeNull();
+        customerPaymentDescriptor.CreateAction!.Fields!.Select(field => field.Key)
+            .ShouldBe(["when", "endWhen", "amount", "customer", "cash"]);
+
+        var paysForDescriptor = DescriptorDrivenWorkspaceDefinitions.All.Single(descriptor => descriptor.Key == "pays-for");
+        paysForDescriptor.CreateAction.ShouldNotBeNull();
+        paysForDescriptor.CreateAction!.Fields!.Select(field => field.Key)
+            .ShouldBe(["sale", "customerPayment"]);
 
         var salesOrderDescriptor = DescriptorDrivenWorkspaceDefinitions.All.Single(descriptor => descriptor.Key == "sales-orders");
         salesOrderDescriptor.CreateAction.ShouldNotBeNull();

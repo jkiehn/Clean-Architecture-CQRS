@@ -28,7 +28,10 @@ internal sealed class EntityWorkspaceBackendService : IEntityWorkspaceBackendSer
             CreateAgentSubtypeDescriptor<Vendor, VendorReadModel>("vendors", "Vendor"),
             CreateEmployeeDescriptor(),
             CreateResourceSubtypeDescriptor<Item, ItemReadModel>("items", "Item"),
+            CreateResourceSubtypeDescriptor<Cash, CashReadModel>("cash", "Cash"),
             CreateSaleDescriptor(),
+            CreateCustomerPaymentDescriptor(),
+            CreatePaysForDescriptor(),
             CreateSalesOrderDescriptor(),
             CreateItContractDescriptor(),
             CreatePrepaidItReportDescriptor(),
@@ -122,6 +125,26 @@ internal sealed class EntityWorkspaceBackendService : IEntityWorkspaceBackendSer
             (service, id) => service.DeleteSaleAsync(id),
             (service, id, collectionKey, actionKey, values) => service.ExecuteSaleCollectionActionAsync(id, collectionKey, actionKey, values),
             (service, id, collectionKey, itemKey, actionKey) => service.ExecuteSaleCollectionItemActionAsync(id, collectionKey, itemKey, actionKey));
+
+    private static EntityWorkspaceBackendDescriptor CreateCustomerPaymentDescriptor()
+        => new(
+            "customer-payments",
+            (service, searchPhrase) => service.SearchCustomerPaymentsAsync(searchPhrase),
+            (service, id) => service.GetCustomerPaymentAsync(id),
+            (service, values) => service.CreateCustomerPaymentAsync(values),
+            (service, id, values) => service.UpdateCustomerPaymentAsync(id, values),
+            (service, id) => service.DeleteCustomerPaymentAsync(id),
+            (service, id, collectionKey, actionKey, values) => service.ExecuteCustomerPaymentCollectionActionAsync(id, collectionKey, actionKey, values),
+            (service, id, collectionKey, itemKey, actionKey) => service.ExecuteCustomerPaymentCollectionItemActionAsync(id, collectionKey, itemKey, actionKey));
+
+    private static EntityWorkspaceBackendDescriptor CreatePaysForDescriptor()
+        => new(
+            "pays-for",
+            (service, searchPhrase) => service.SearchPaysForsAsync(searchPhrase),
+            (service, id) => service.GetPaysForAsync(id),
+            (service, values) => service.CreatePaysForAsync(values),
+            null,
+            (service, id) => service.DeletePaysForAsync(id));
 
     private static EntityWorkspaceBackendDescriptor CreateSalesOrderDescriptor()
         => new(
@@ -580,7 +603,8 @@ internal sealed class EntityWorkspaceBackendService : IEntityWorkspaceBackendSer
                 },
                 new[]
                 {
-                    await BuildSalesLineCollectionAsync(sale.Id)
+                    await BuildSalesLineCollectionAsync(sale.Id),
+                    await BuildSalePaymentsCollectionAsync(sale.Id)
                 });
     }
 
@@ -625,6 +649,15 @@ internal sealed class EntityWorkspaceBackendService : IEntityWorkspaceBackendSer
         if (sale is null)
         {
             throw new InvalidOperationException($"Sale with ID '{id}' was not found.");
+        }
+
+        var links = await _writeDbContext.PaysFors
+            .Where(link => Microsoft.EntityFrameworkCore.EF.Property<EventId>(link, "_firstEventId") == (EventId)id)
+            .ToListAsync();
+
+        if (links.Count > 0)
+        {
+            _writeDbContext.PaysFors.RemoveRange(links);
         }
 
         _writeDbContext.Sales.Remove(sale);
@@ -699,8 +732,89 @@ internal sealed class EntityWorkspaceBackendService : IEntityWorkspaceBackendSer
                 }));
     }
 
+    private async Task<EntityWorkspaceCollectionSectionDto> BuildSalePaymentsCollectionAsync(Guid saleId)
+    {
+        var paymentData =
+            await (
+                from link in _readDbContext.PaysFors
+                join payment in _readDbContext.CustomerPayments on link.CustomerPaymentId equals payment.Id
+                join customer in _readDbContext.Customers on payment.CustomerId equals customer.Id
+                join cash in _readDbContext.CashResources on payment.CashResourceId equals cash.Id
+                where link.SaleId == saleId
+                select new
+                {
+                    LinkId = link.Id,
+                    PaymentId = payment.Id,
+                    payment.When,
+                    payment.Amount,
+                    CustomerName = customer.Name,
+                    CashName = cash.Name
+                })
+            .AsNoTracking()
+            .ToListAsync();
+
+        var items = paymentData
+            .OrderByDescending(payment => payment.When)
+            .ThenBy(payment => payment.PaymentId)
+            .Select(payment => new EntityWorkspaceCollectionItemDto(
+                payment.PaymentId.ToString(),
+                $"{FormatAmount(payment.Amount)} from {payment.CustomerName}",
+                $"{FormatDateTime(payment.When)} via {payment.CashName}",
+                new[]
+                {
+                    new EntityWorkspacePropertyDto("Payment Identifier", payment.PaymentId.ToString()),
+                    new EntityWorkspacePropertyDto("PaysFor Identifier", payment.LinkId.ToString())
+                },
+                new[]
+                {
+                    new EntityWorkspaceCollectionItemActionDto("unlink", "Unlink", "btn btn-sm btn-outline-danger")
+                }))
+            .ToList();
+
+        return new EntityWorkspaceCollectionSectionDto(
+            "payments",
+            "Payments",
+            "No customer payments are linked to this sale yet.",
+            items,
+            new EntityWorkspaceActionDefinitionDto(
+                "add",
+                "Add payment",
+                "btn btn-primary action-btn",
+                new[]
+                {
+                    new EntityWorkspaceFieldDefinitionDto(
+                        "customerPayment",
+                        "Customer Payment",
+                        Placeholder: "Customer payment ID",
+                        Lookup: new EntityWorkspaceLookupDefinitionDto("customer-payments")),
+                    new EntityWorkspaceFieldDefinitionDto(
+                        "when",
+                        "When",
+                        EntityWorkspaceFieldKindDto.DateTime,
+                        Placeholder: "N, T, +1d, or 2026-07-03T14:30:00+00:00",
+                        DefaultValue: "N"),
+                    new EntityWorkspaceFieldDefinitionDto(
+                        "amount",
+                        "Amount",
+                        EntityWorkspaceFieldKindDto.Number,
+                        Placeholder: "Leave empty to use the sale amount"),
+                    new EntityWorkspaceFieldDefinitionDto(
+                        "cash",
+                        "Cash",
+                        Placeholder: "Cash name or ID",
+                        Lookup: new EntityWorkspaceLookupDefinitionDto("cash"))
+                }));
+    }
+
     private async Task<EntityWorkspaceOperationResultDto> ExecuteSaleCollectionActionAsync(Guid saleId, string collectionKey, string actionKey, IReadOnlyDictionary<string, string?> values)
     {
+        if (string.Equals(collectionKey, "payments", StringComparison.OrdinalIgnoreCase) &&
+            (string.Equals(actionKey, "add", StringComparison.OrdinalIgnoreCase) ||
+             string.Equals(actionKey, "link", StringComparison.OrdinalIgnoreCase)))
+        {
+            return await AddPaymentToSaleAsync(saleId, values);
+        }
+
         if (!string.Equals(collectionKey, "salesLines", StringComparison.OrdinalIgnoreCase) ||
             !string.Equals(actionKey, "add", StringComparison.OrdinalIgnoreCase))
         {
@@ -727,6 +841,12 @@ internal sealed class EntityWorkspaceBackendService : IEntityWorkspaceBackendSer
 
     private async Task<EntityWorkspaceOperationResultDto> ExecuteSaleCollectionItemActionAsync(Guid saleId, string collectionKey, string itemKey, string actionKey)
     {
+        if (string.Equals(collectionKey, "payments", StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(actionKey, "unlink", StringComparison.OrdinalIgnoreCase))
+        {
+            return await UnlinkCustomerPaymentFromSaleAsync(saleId, itemKey);
+        }
+
         if (!string.Equals(collectionKey, "salesLines", StringComparison.OrdinalIgnoreCase) ||
             !string.Equals(actionKey, "remove", StringComparison.OrdinalIgnoreCase))
         {
@@ -750,6 +870,480 @@ internal sealed class EntityWorkspaceBackendService : IEntityWorkspaceBackendSer
         sale.RemoveSalesLine(new StockflowId(lineId));
         await _writeDbContext.SaveChangesAsync();
         return new EntityWorkspaceOperationResultDto("Sales line removed.");
+    }
+
+    private async Task<IReadOnlyList<EntityWorkspaceListItemDto>> SearchCustomerPaymentsAsync(string? searchPhrase)
+    {
+        var search = searchPhrase?.Trim();
+        var hasAmountFilter = decimal.TryParse(search, out var parsedAmount);
+
+        var query =
+            from payment in _readDbContext.CustomerPayments
+            join customer in _readDbContext.Customers on payment.CustomerId equals customer.Id
+            join cash in _readDbContext.CashResources on payment.CashResourceId equals cash.Id
+            select new
+            {
+                payment.Id,
+                payment.When,
+                payment.Amount,
+                CustomerName = customer.Name,
+                CustomerEmail = customer.Email,
+                CashName = cash.Name
+            };
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            query = query.Where(item =>
+                Microsoft.EntityFrameworkCore.EF.Functions.Like(item.CustomerName, $"%{search}%") ||
+                Microsoft.EntityFrameworkCore.EF.Functions.Like(item.CustomerEmail, $"%{search}%") ||
+                Microsoft.EntityFrameworkCore.EF.Functions.Like(item.CashName, $"%{search}%") ||
+                (hasAmountFilter && item.Amount == parsedAmount));
+        }
+
+        return await query
+            .OrderByDescending(item => item.When)
+            .Select(item => new EntityWorkspaceListItemDto(
+                item.Id,
+                $"Payment {FormatDateTime(item.When)}",
+                $"{item.CustomerName} via {item.CashName}",
+                new[]
+                {
+                    new EntityWorkspacePropertyDto("Type", "Customer Payment"),
+                    new EntityWorkspacePropertyDto("Amount", FormatAmount(item.Amount))
+                }))
+            .AsNoTracking()
+            .ToListAsync();
+    }
+
+    private async Task<EntityWorkspaceDetailDto?> GetCustomerPaymentAsync(Guid id)
+    {
+        var payment =
+            await (
+                from entity in _readDbContext.CustomerPayments
+                join customer in _readDbContext.Customers on entity.CustomerId equals customer.Id
+                join cash in _readDbContext.CashResources on entity.CashResourceId equals cash.Id
+                where entity.Id == id
+                select new
+                {
+                    entity.Id,
+                    entity.When,
+                    entity.EndWhen,
+                    entity.Amount,
+                    entity.ExternalParticipationId,
+                    entity.CashFlowId,
+                    entity.CustomerId,
+                    entity.CashResourceId,
+                    CustomerName = customer.Name,
+                    CustomerEmail = customer.Email,
+                    CashName = cash.Name
+                })
+            .AsNoTracking()
+            .SingleOrDefaultAsync();
+
+        return payment is null
+            ? null
+            : new EntityWorkspaceDetailDto(
+                payment.Id,
+                $"Payment {FormatDateTime(payment.When)}",
+                $"{payment.CustomerName} via {payment.CashName}",
+                new[]
+                {
+                    new EntityWorkspacePropertyDto("When", FormatDateTime(payment.When)),
+                    new EntityWorkspacePropertyDto("End When", FormatOptionalDateTime(payment.EndWhen)),
+                    new EntityWorkspacePropertyDto("Amount", FormatAmount(payment.Amount)),
+                    new EntityWorkspacePropertyDto("Customer", $"{payment.CustomerName} ({payment.CustomerEmail})"),
+                    new EntityWorkspacePropertyDto("Cash", payment.CashName),
+                    new EntityWorkspacePropertyDto("External Participation", payment.ExternalParticipationId.ToString()),
+                    new EntityWorkspacePropertyDto("Cash Flow", payment.CashFlowId.ToString()),
+                    new EntityWorkspacePropertyDto("Identifier", payment.Id.ToString()),
+                    new EntityWorkspacePropertyDto("Type", "Customer Payment")
+                },
+                new Dictionary<string, object?>
+                {
+                    ["when"] = payment.When.ToString("O"),
+                    ["endWhen"] = payment.EndWhen?.ToString("O") ?? string.Empty,
+                    ["amount"] = payment.Amount?.ToString("0.##", CultureInfo.InvariantCulture) ?? string.Empty,
+                    ["customer"] = payment.CustomerEmail,
+                    ["cash"] = payment.CashResourceId.ToString()
+                },
+                new[]
+                {
+                    await BuildCustomerPaymentSalesCollectionAsync(payment.Id)
+                });
+    }
+
+    private async Task<EntityWorkspaceOperationResultDto> CreateCustomerPaymentAsync(IReadOnlyDictionary<string, string?> values)
+    {
+        var when = ParseRequiredDateTimeOffset(values, "when");
+        var endWhen = ParseOptionalDateTimeOffset(values, "endWhen");
+        var amount = ParseRequiredDecimal(values, "amount");
+        var customer = await ResolveCustomerAsync(GetRequiredValue(values, "customer"));
+        var cash = await ResolveCashAsync(GetRequiredValue(values, "cash"));
+
+        var id = Guid.NewGuid();
+        var payment = new CustomerPayment(id, when, customer.Id, cash.Id, amount, endWhen);
+
+        await _writeDbContext.CustomerPayments.AddAsync(payment);
+        await _writeDbContext.SaveChangesAsync();
+        return new EntityWorkspaceOperationResultDto("Customer payment created.", id);
+    }
+
+    private async Task<EntityWorkspaceOperationResultDto> UpdateCustomerPaymentAsync(Guid id, IReadOnlyDictionary<string, string?> values)
+    {
+        var payment = await _writeDbContext.CustomerPayments.SingleOrDefaultAsync(item => item.Id == (EventId)id);
+
+        if (payment is null)
+        {
+            throw new InvalidOperationException($"Customer payment with ID '{id}' was not found.");
+        }
+
+        var when = ParseRequiredDateTimeOffset(values, "when");
+        var endWhen = ParseOptionalDateTimeOffset(values, "endWhen");
+        var amount = ParseRequiredDecimal(values, "amount");
+        var customer = await ResolveCustomerAsync(GetRequiredValue(values, "customer"));
+        var cash = await ResolveCashAsync(GetRequiredValue(values, "cash"));
+
+        payment.UpdateDetails(when, customer.Id, cash.Id, amount, endWhen);
+        await _writeDbContext.SaveChangesAsync();
+        return new EntityWorkspaceOperationResultDto("Customer payment updated.", id);
+    }
+
+    private async Task<EntityWorkspaceOperationResultDto> DeleteCustomerPaymentAsync(Guid id)
+    {
+        var payment = await _writeDbContext.CustomerPayments.SingleOrDefaultAsync(item => item.Id == (EventId)id);
+
+        if (payment is null)
+        {
+            throw new InvalidOperationException($"Customer payment with ID '{id}' was not found.");
+        }
+
+        var links = await _writeDbContext.PaysFors
+            .Where(link => Microsoft.EntityFrameworkCore.EF.Property<EventId>(link, "_secondEventId") == (EventId)id)
+            .ToListAsync();
+
+        if (links.Count > 0)
+        {
+            _writeDbContext.PaysFors.RemoveRange(links);
+        }
+
+        _writeDbContext.CustomerPayments.Remove(payment);
+        await _writeDbContext.SaveChangesAsync();
+        return new EntityWorkspaceOperationResultDto("Customer payment deleted.");
+    }
+
+    private async Task<EntityWorkspaceCollectionSectionDto> BuildCustomerPaymentSalesCollectionAsync(Guid customerPaymentId)
+    {
+        var saleData =
+            await (
+                from link in _readDbContext.PaysFors
+                join sale in _readDbContext.Sales on link.SaleId equals sale.Id
+                join customer in _readDbContext.Customers on sale.CustomerId equals customer.Id
+                where link.CustomerPaymentId == customerPaymentId
+                select new
+                {
+                    sale.Id,
+                    sale.When,
+                    sale.Amount,
+                    CustomerName = customer.Name
+                })
+            .AsNoTracking()
+            .ToListAsync();
+
+        var items = saleData
+            .OrderByDescending(sale => sale.When)
+            .ThenBy(sale => sale.Id)
+            .Select(sale => new EntityWorkspaceCollectionItemDto(
+                sale.Id.ToString(),
+                $"Sale {FormatDateTime(sale.When)}",
+                sale.CustomerName,
+                new[]
+                {
+                    new EntityWorkspacePropertyDto("Amount", FormatAmount(sale.Amount)),
+                    new EntityWorkspacePropertyDto("Sale Identifier", sale.Id.ToString())
+                },
+                new[]
+                {
+                    new EntityWorkspaceCollectionItemActionDto("unlink", "Unlink", "btn btn-sm btn-outline-danger")
+                }))
+            .ToList();
+
+        return new EntityWorkspaceCollectionSectionDto(
+            "sales",
+            "Sales",
+            "This payment is not linked to any sales yet.",
+            items,
+            new EntityWorkspaceActionDefinitionDto(
+                "link",
+                "Link sale",
+                "btn btn-primary action-btn",
+                new[]
+                {
+                    new EntityWorkspaceFieldDefinitionDto(
+                        "sale",
+                        "Sale",
+                        Required: true,
+                        Placeholder: "Sale ID",
+                        Lookup: new EntityWorkspaceLookupDefinitionDto("sales"))
+                }));
+    }
+
+    private async Task<EntityWorkspaceOperationResultDto> ExecuteCustomerPaymentCollectionActionAsync(Guid customerPaymentId, string collectionKey, string actionKey, IReadOnlyDictionary<string, string?> values)
+    {
+        if (!string.Equals(collectionKey, "sales", StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(actionKey, "link", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException($"Unsupported customer payment collection action '{collectionKey}/{actionKey}'.");
+        }
+
+        return await LinkCustomerPaymentToSaleAsync(GetRequiredValue(values, "sale"), customerPaymentId);
+    }
+
+    private async Task<EntityWorkspaceOperationResultDto> ExecuteCustomerPaymentCollectionItemActionAsync(Guid customerPaymentId, string collectionKey, string itemKey, string actionKey)
+    {
+        if (!string.Equals(collectionKey, "sales", StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(actionKey, "unlink", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException($"Unsupported customer payment collection item action '{collectionKey}/{actionKey}'.");
+        }
+
+        return await UnlinkCustomerPaymentFromSaleAsync(itemKey, customerPaymentId);
+    }
+
+    private async Task<EntityWorkspaceOperationResultDto> AddPaymentToSaleAsync(Guid saleId, IReadOnlyDictionary<string, string?> values)
+    {
+        if (values.TryGetValue("customerPayment", out var customerPaymentValue) &&
+            !string.IsNullOrWhiteSpace(customerPaymentValue))
+        {
+            return await LinkCustomerPaymentToSaleAsync(saleId, customerPaymentValue);
+        }
+
+        var sale = await _writeDbContext.Sales.SingleOrDefaultAsync(item => item.Id == (EventId)saleId);
+
+        if (sale is null)
+        {
+            throw new InvalidOperationException($"Sale with ID '{saleId}' was not found.");
+        }
+
+        var when = ParseOptionalDateTimeOffset(values, "when") ?? DateTimeOffset.Now;
+        var amount = ParseOptionalDecimal(values, "amount") ?? GetSaleAmount(sale);
+        var cash = await ResolveCashAsync(GetRequiredValue(values, "cash"));
+        var customerId = GetPrivateField<AgentId>(sale, "_customerId");
+
+        var payment = new CustomerPayment(Guid.NewGuid(), when, customerId, cash.Id, amount);
+        await _writeDbContext.CustomerPayments.AddAsync(payment);
+        await _writeDbContext.SaveChangesAsync();
+
+        var link = new PaysFor(Guid.NewGuid(), saleId, payment.Id);
+        await _writeDbContext.PaysFors.AddAsync(link);
+        await _writeDbContext.SaveChangesAsync();
+
+        return new EntityWorkspaceOperationResultDto("Customer payment created and linked to sale.", saleId);
+    }
+
+    private async Task<EntityWorkspaceOperationResultDto> LinkCustomerPaymentToSaleAsync(Guid saleId, string customerPaymentValue)
+    {
+        if (!Guid.TryParse(customerPaymentValue.Trim(), out var paymentId))
+        {
+            throw new InvalidOperationException($"Customer payment reference '{customerPaymentValue}' is invalid.");
+        }
+
+        return await LinkCustomerPaymentToSaleAsync(saleId.ToString(), paymentId);
+    }
+
+    private async Task<EntityWorkspaceOperationResultDto> LinkCustomerPaymentToSaleAsync(string saleValue, Guid customerPaymentId)
+    {
+        if (!Guid.TryParse(saleValue.Trim(), out var saleId))
+        {
+            throw new InvalidOperationException($"Sale reference '{saleValue}' is invalid.");
+        }
+
+        var sale = await _readDbContext.Sales
+            .Where(item => item.Id == saleId)
+            .Select(item => new { item.Id, item.CustomerId, item.Amount })
+            .SingleOrDefaultAsync();
+
+        if (sale is null)
+        {
+            throw new InvalidOperationException($"Sale with ID '{saleId}' was not found.");
+        }
+
+        var payment = await _readDbContext.CustomerPayments
+            .Where(item => item.Id == customerPaymentId)
+            .Select(item => new { item.Id, item.CustomerId, item.Amount })
+            .SingleOrDefaultAsync();
+
+        if (payment is null)
+        {
+            throw new InvalidOperationException($"Customer payment with ID '{customerPaymentId}' was not found.");
+        }
+
+        if (sale.CustomerId != payment.CustomerId)
+        {
+            throw new InvalidOperationException("The sale and customer payment must belong to the same customer.");
+        }
+
+        var exists = await _writeDbContext.PaysFors.AnyAsync(link =>
+            Microsoft.EntityFrameworkCore.EF.Property<EventId>(link, "_firstEventId") == (EventId)saleId &&
+            Microsoft.EntityFrameworkCore.EF.Property<EventId>(link, "_secondEventId") == (EventId)customerPaymentId);
+
+        if (exists)
+        {
+            throw new InvalidOperationException("This customer payment is already linked to the sale.");
+        }
+
+        var link = new PaysFor(Guid.NewGuid(), saleId, customerPaymentId);
+        await _writeDbContext.PaysFors.AddAsync(link);
+        await _writeDbContext.SaveChangesAsync();
+        return new EntityWorkspaceOperationResultDto("Customer payment linked to sale.", link.Id.Value);
+    }
+
+    private async Task<EntityWorkspaceOperationResultDto> UnlinkCustomerPaymentFromSaleAsync(Guid saleId, string customerPaymentValue)
+    {
+        if (!Guid.TryParse(customerPaymentValue.Trim(), out var paymentId))
+        {
+            throw new InvalidOperationException($"Customer payment key '{customerPaymentValue}' is invalid.");
+        }
+
+        return await UnlinkCustomerPaymentFromSaleAsync(saleId.ToString(), paymentId);
+    }
+
+    private async Task<EntityWorkspaceOperationResultDto> UnlinkCustomerPaymentFromSaleAsync(string saleValue, Guid customerPaymentId)
+    {
+        if (!Guid.TryParse(saleValue.Trim(), out var saleId))
+        {
+            throw new InvalidOperationException($"Sale key '{saleValue}' is invalid.");
+        }
+
+        var link = await _writeDbContext.PaysFors.SingleOrDefaultAsync(item =>
+            Microsoft.EntityFrameworkCore.EF.Property<EventId>(item, "_firstEventId") == (EventId)saleId &&
+            Microsoft.EntityFrameworkCore.EF.Property<EventId>(item, "_secondEventId") == (EventId)customerPaymentId);
+
+        if (link is null)
+        {
+            throw new InvalidOperationException("The sale is not linked to that customer payment.");
+        }
+
+        _writeDbContext.PaysFors.Remove(link);
+        await _writeDbContext.SaveChangesAsync();
+        return new EntityWorkspaceOperationResultDto("Customer payment unlinked from sale.");
+    }
+
+    private async Task<IReadOnlyList<EntityWorkspaceListItemDto>> SearchPaysForsAsync(string? searchPhrase)
+    {
+        var search = searchPhrase?.Trim();
+        var query =
+            from link in _readDbContext.PaysFors
+            join sale in _readDbContext.Sales on link.SaleId equals sale.Id
+            join payment in _readDbContext.CustomerPayments on link.CustomerPaymentId equals payment.Id
+            join customer in _readDbContext.Customers on sale.CustomerId equals customer.Id
+            select new
+            {
+                link.Id,
+                SaleId = sale.Id,
+                PaymentId = payment.Id,
+                SaleWhen = sale.When,
+                PaymentWhen = payment.When,
+                payment.Amount,
+                CustomerName = customer.Name
+            };
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            query = query.Where(item =>
+                Microsoft.EntityFrameworkCore.EF.Functions.Like(item.CustomerName, $"%{search}%") ||
+                item.SaleId.ToString() == search ||
+                item.PaymentId.ToString() == search ||
+                item.Id.ToString() == search);
+        }
+
+        var items = await query
+            .Select(item => new EntityWorkspaceListItemDto(
+                item.Id,
+                $"{item.CustomerName} pays for sale",
+                $"Sale {FormatDateTime(item.SaleWhen)} <- Payment {FormatDateTime(item.PaymentWhen)}",
+                new[]
+                {
+                    new EntityWorkspacePropertyDto("Type", "Pays For"),
+                    new EntityWorkspacePropertyDto("Amount", FormatAmount(item.Amount))
+                }))
+            .AsNoTracking()
+            .ToListAsync();
+
+        return items
+            .OrderByDescending(item => item.Subtitle)
+            .ToList();
+    }
+
+    private async Task<EntityWorkspaceDetailDto?> GetPaysForAsync(Guid id)
+    {
+        var link =
+            await (
+                from entity in _readDbContext.PaysFors
+                join sale in _readDbContext.Sales on entity.SaleId equals sale.Id
+                join payment in _readDbContext.CustomerPayments on entity.CustomerPaymentId equals payment.Id
+                join customer in _readDbContext.Customers on sale.CustomerId equals customer.Id
+                where entity.Id == id
+                select new
+                {
+                    entity.Id,
+                    SaleId = sale.Id,
+                    PaymentId = payment.Id,
+                    SaleWhen = sale.When,
+                    PaymentWhen = payment.When,
+                    payment.Amount,
+                    CustomerName = customer.Name,
+                    CustomerEmail = customer.Email
+                })
+            .AsNoTracking()
+            .SingleOrDefaultAsync();
+
+        return link is null
+            ? null
+            : new EntityWorkspaceDetailDto(
+                link.Id,
+                $"{link.CustomerName} pays for sale",
+                $"Sale {FormatDateTime(link.SaleWhen)} <- Payment {FormatDateTime(link.PaymentWhen)}",
+                new[]
+                {
+                    new EntityWorkspacePropertyDto("Sale", link.SaleId.ToString()),
+                    new EntityWorkspacePropertyDto("Customer Payment", link.PaymentId.ToString()),
+                    new EntityWorkspacePropertyDto("Customer", $"{link.CustomerName} ({link.CustomerEmail})"),
+                    new EntityWorkspacePropertyDto("Amount", FormatAmount(link.Amount)),
+                    new EntityWorkspacePropertyDto("Type", "Pays For")
+                },
+                new Dictionary<string, object?>
+                {
+                    ["sale"] = link.SaleId.ToString(),
+                    ["customerPayment"] = link.PaymentId.ToString()
+                },
+                Array.Empty<EntityWorkspaceCollectionSectionDto>());
+    }
+
+    private async Task<EntityWorkspaceOperationResultDto> CreatePaysForAsync(IReadOnlyDictionary<string, string?> values)
+    {
+        var sale = GetRequiredValue(values, "sale");
+        var customerPayment = GetRequiredValue(values, "customerPayment");
+
+        if (!Guid.TryParse(sale, out var saleId))
+        {
+            throw new InvalidOperationException($"Sale reference '{sale}' is invalid.");
+        }
+
+        return await LinkCustomerPaymentToSaleAsync(saleId, customerPayment);
+    }
+
+    private async Task<EntityWorkspaceOperationResultDto> DeletePaysForAsync(Guid id)
+    {
+        var link = await _writeDbContext.PaysFors.SingleOrDefaultAsync(item => item.Id == (DualityId)id);
+
+        if (link is null)
+        {
+            throw new InvalidOperationException($"Pays-for with ID '{id}' was not found.");
+        }
+
+        _writeDbContext.PaysFors.Remove(link);
+        await _writeDbContext.SaveChangesAsync();
+        return new EntityWorkspaceOperationResultDto("Pays-for deleted.");
     }
 
     private async Task<IReadOnlyList<EntityWorkspaceListItemDto>> SearchSalesOrdersAsync(string? searchPhrase)
@@ -1597,6 +2191,33 @@ internal sealed class EntityWorkspaceBackendService : IEntityWorkspaceBackendSer
         return (new ResourceId(match.Id), match.Name);
     }
 
+    private async Task<(ResourceId Id, string Name)> ResolveCashAsync(string value)
+    {
+        var search = value.Trim();
+        var hasId = Guid.TryParse(search, out var id);
+
+        var matches = await _readDbContext.CashResources
+            .Where(cash =>
+                (hasId && cash.Id == id) ||
+                cash.Name == search)
+            .Select(cash => new { cash.Id, cash.Name })
+            .AsNoTracking()
+            .ToListAsync();
+
+        if (matches.Count == 0)
+        {
+            throw new InvalidOperationException($"Cash resource '{search}' was not found.");
+        }
+
+        if (matches.Count > 1)
+        {
+            throw new InvalidOperationException($"Cash reference '{search}' is ambiguous. Use the lookup or cash ID.");
+        }
+
+        var match = matches[0];
+        return (new ResourceId(match.Id), match.Name);
+    }
+
     private async Task<(AgentId Id, string Name, string Email)> ResolveVendorAsync(string value)
     {
         var search = value.Trim();
@@ -1671,6 +2292,29 @@ internal sealed class EntityWorkspaceBackendService : IEntityWorkspaceBackendSer
     private static decimal ParseRequiredDecimal(IReadOnlyDictionary<string, string?> values, string key)
         => ParseOptionalDecimal(values, key)
            ?? throw new InvalidOperationException($"Field '{key}' is required.");
+
+    private static decimal GetSaleAmount(Sale sale)
+        => GetPrivateField<decimal?>(sale, "_amount")
+           ?? throw new InvalidOperationException("The sale does not have an amount yet. Add sales lines first or enter a payment amount manually.");
+
+    private static T GetPrivateField<T>(object instance, string fieldName)
+    {
+        var currentType = instance.GetType();
+        System.Reflection.FieldInfo? field = null;
+
+        while (currentType is not null && field is null)
+        {
+            field = currentType.GetField(fieldName, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            currentType = currentType.BaseType;
+        }
+
+        if (field is null)
+        {
+            throw new InvalidOperationException($"Field '{fieldName}' was not found on {instance.GetType().Name}.");
+        }
+
+        return (T)field.GetValue(instance)!;
+    }
 
     private static string FormatDateTime(DateTimeOffset value)
         => value.ToString("yyyy-MM-dd HH:mm zzz");

@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace CleanArchitectureCQRS.Infrastructure.EF.Config;
 
-internal sealed class ReadConfiguration : IEntityTypeConfiguration<SampleEntityReadModel>, IEntityTypeConfiguration<SampleEntityItemReadModel>, IEntityTypeConfiguration<CustomerReadModel>, IEntityTypeConfiguration<VendorReadModel>, IEntityTypeConfiguration<EmployeeReadModel>, IEntityTypeConfiguration<ItemReadModel>, IEntityTypeConfiguration<SaleReadModel>, IEntityTypeConfiguration<SalesLineReadModel>, IEntityTypeConfiguration<SalesOrderReadModel>, IEntityTypeConfiguration<SalesOrderLineReadModel>, IEntityTypeConfiguration<ItContractReadModel>
+internal sealed class ReadConfiguration : IEntityTypeConfiguration<SampleEntityReadModel>, IEntityTypeConfiguration<SampleEntityItemReadModel>, IEntityTypeConfiguration<CustomerReadModel>, IEntityTypeConfiguration<VendorReadModel>, IEntityTypeConfiguration<EmployeeReadModel>, IEntityTypeConfiguration<ItemReadModel>, IEntityTypeConfiguration<CashReadModel>, IEntityTypeConfiguration<SaleReadModel>, IEntityTypeConfiguration<SalesLineReadModel>, IEntityTypeConfiguration<CustomerPaymentReadModel>, IEntityTypeConfiguration<CustomerPaymentCashFlowReadModel>, IEntityTypeConfiguration<PaysForReadModel>, IEntityTypeConfiguration<SalesOrderReadModel>, IEntityTypeConfiguration<SalesOrderLineReadModel>, IEntityTypeConfiguration<ItContractReadModel>
 {
     public void Configure(EntityTypeBuilder<SampleEntityReadModel> builder)
     {
@@ -40,6 +40,9 @@ internal sealed class ReadConfiguration : IEntityTypeConfiguration<SampleEntityR
     public void Configure(EntityTypeBuilder<ItemReadModel> builder)
         => ConfigureResource(builder, "Items");
 
+    public void Configure(EntityTypeBuilder<CashReadModel> builder)
+        => ConfigureResource(builder, "Cash");
+
     public void Configure(EntityTypeBuilder<SaleReadModel> builder)
     {
         ConfigureEvent(builder, "Sales");
@@ -59,6 +62,34 @@ internal sealed class ReadConfiguration : IEntityTypeConfiguration<SampleEntityR
         builder.Property(line => line.ItemId).IsRequired();
         builder.Property(line => line.UnitPrice).IsRequired();
         builder.Property(line => line.Quantity).IsRequired();
+    }
+
+    public void Configure(EntityTypeBuilder<CustomerPaymentReadModel> builder)
+    {
+        ConfigureEvent(builder, "CustomerPayments");
+        builder.Property(payment => payment.ExternalParticipationId).IsRequired();
+        builder.Property(payment => payment.CustomerId).IsRequired();
+        builder.Property(payment => payment.CashFlowId).IsRequired();
+        builder.Property(payment => payment.CashResourceId).IsRequired();
+    }
+
+    public void Configure(EntityTypeBuilder<CustomerPaymentCashFlowReadModel> builder)
+    {
+        builder.ToTable("CustomerPaymentCashFlows");
+        builder.HasKey(flow => flow.Id);
+        builder.Property(flow => flow.OccurrentEndId).IsRequired();
+        builder.Property(flow => flow.ResourceEndId).IsRequired();
+        builder.Property(flow => flow.CustomerPaymentId).IsRequired();
+        builder.Property(flow => flow.CashResourceId).IsRequired();
+    }
+
+    public void Configure(EntityTypeBuilder<PaysForReadModel> builder)
+    {
+        builder.ToTable("PaysFor");
+        builder.HasKey(link => link.Id);
+        builder.Property(link => link.SaleId).IsRequired();
+        builder.Property(link => link.CustomerPaymentId).IsRequired();
+        builder.HasIndex(link => new { link.SaleId, link.CustomerPaymentId }).IsUnique();
     }
 
     public void Configure(EntityTypeBuilder<SalesOrderReadModel> builder)

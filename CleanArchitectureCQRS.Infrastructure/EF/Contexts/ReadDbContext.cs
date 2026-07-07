@@ -11,8 +11,12 @@ internal sealed class ReadDbContext : DbContext
     public DbSet<VendorReadModel> Vendors { get; set; }
     public DbSet<EmployeeReadModel> Employees { get; set; }
     public DbSet<ItemReadModel> Items { get; set; }
+    public DbSet<CashReadModel> CashResources { get; set; }
     public DbSet<SaleReadModel> Sales { get; set; }
     public DbSet<SalesLineReadModel> SalesLines { get; set; }
+    public DbSet<CustomerPaymentReadModel> CustomerPayments { get; set; }
+    public DbSet<CustomerPaymentCashFlowReadModel> CustomerPaymentCashFlows { get; set; }
+    public DbSet<PaysForReadModel> PaysFors { get; set; }
     public DbSet<SalesOrderReadModel> SalesOrders { get; set; }
     public DbSet<SalesOrderLineReadModel> SalesOrderLines { get; set; }
     public DbSet<ItContractReadModel> ItContracts { get; set; }
@@ -32,8 +36,12 @@ internal sealed class ReadDbContext : DbContext
         modelBuilder.ApplyConfiguration<VendorReadModel>(configuration);
         modelBuilder.ApplyConfiguration<EmployeeReadModel>(configuration);
         modelBuilder.ApplyConfiguration<ItemReadModel>(configuration);
+        modelBuilder.ApplyConfiguration<CashReadModel>(configuration);
         modelBuilder.ApplyConfiguration<SaleReadModel>(configuration);
         modelBuilder.ApplyConfiguration<SalesLineReadModel>(configuration);
+        modelBuilder.ApplyConfiguration<CustomerPaymentReadModel>(configuration);
+        modelBuilder.ApplyConfiguration<CustomerPaymentCashFlowReadModel>(configuration);
+        modelBuilder.ApplyConfiguration<PaysForReadModel>(configuration);
         modelBuilder.ApplyConfiguration<SalesOrderReadModel>(configuration);
         modelBuilder.ApplyConfiguration<SalesOrderLineReadModel>(configuration);
         modelBuilder.ApplyConfiguration<ItContractReadModel>(configuration);

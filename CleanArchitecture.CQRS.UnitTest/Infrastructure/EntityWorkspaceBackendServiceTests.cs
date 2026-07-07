@@ -299,7 +299,8 @@ public class EntityWorkspaceBackendServiceTests
         detail.Summary.ShouldContain(property => property.Label == "Customer" && property.Value.Contains("buyer@contoso.example"));
         detail.EditValues["employee"].ShouldBe("emma@example.com");
         detail.EditValues["customer"].ShouldBe("buyer@contoso.example");
-        detail.Collections.Single().Key.ShouldBe("salesLines");
+        detail.Collections.ShouldContain(collection => collection.Key == "salesLines");
+        detail.Collections.ShouldContain(collection => collection.Key == "payments");
     }
 
     [Fact]

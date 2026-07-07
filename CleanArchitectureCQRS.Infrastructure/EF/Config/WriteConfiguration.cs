@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace CleanArchitectureCQRS.Infrastructure.EF.Config;
 
-internal sealed class WriteConfiguration : IEntityTypeConfiguration<SampleEntity>, IEntityTypeConfiguration<SampleEntityItem>, IEntityTypeConfiguration<Customer>, IEntityTypeConfiguration<Vendor>, IEntityTypeConfiguration<Employee>, IEntityTypeConfiguration<Item>, IEntityTypeConfiguration<Sale>, IEntityTypeConfiguration<SalesLine>, IEntityTypeConfiguration<SalesOrder>, IEntityTypeConfiguration<SalesOrderLine>, IEntityTypeConfiguration<ItContract>
+internal sealed class WriteConfiguration : IEntityTypeConfiguration<SampleEntity>, IEntityTypeConfiguration<SampleEntityItem>, IEntityTypeConfiguration<Customer>, IEntityTypeConfiguration<Vendor>, IEntityTypeConfiguration<Employee>, IEntityTypeConfiguration<Item>, IEntityTypeConfiguration<Cash>, IEntityTypeConfiguration<Sale>, IEntityTypeConfiguration<SalesLine>, IEntityTypeConfiguration<CustomerPayment>, IEntityTypeConfiguration<CustomerPaymentCashFlow>, IEntityTypeConfiguration<PaysFor>, IEntityTypeConfiguration<SalesOrder>, IEntityTypeConfiguration<SalesOrderLine>, IEntityTypeConfiguration<ItContract>
 {
     public void Configure(EntityTypeBuilder<SampleEntity> builder)
     {
@@ -73,6 +73,9 @@ internal sealed class WriteConfiguration : IEntityTypeConfiguration<SampleEntity
     public void Configure(EntityTypeBuilder<Item> builder)
         => ConfigureResource(builder, "Items");
 
+    public void Configure(EntityTypeBuilder<Cash> builder)
+        => ConfigureResource(builder, "Cash");
+
     public void Configure(EntityTypeBuilder<Sale> builder)
     {
         ConfigureEvent(builder, "Sales");
@@ -134,6 +137,79 @@ internal sealed class WriteConfiguration : IEntityTypeConfiguration<SampleEntity
             .Property<decimal>("_quantity")
             .HasColumnName("Quantity")
             .IsRequired();
+    }
+
+    public void Configure(EntityTypeBuilder<CustomerPayment> builder)
+    {
+        ConfigureEvent(builder, "CustomerPayments");
+
+        builder
+            .Property<ParticipationId>("_externalParticipationId")
+            .HasConversion(id => id.Value, id => new ParticipationId(id))
+            .HasColumnName("ExternalParticipationId")
+            .IsRequired();
+
+        builder
+            .Property<AgentId>("_customerId")
+            .HasConversion(id => id.Value, id => new AgentId(id))
+            .HasColumnName("CustomerId")
+            .IsRequired();
+
+        builder
+            .Property<StockflowId>("_cashFlowId")
+            .HasConversion(id => id.Value, id => new StockflowId(id))
+            .HasColumnName("CashFlowId")
+            .IsRequired();
+
+        builder
+            .Property<ResourceId>("_cashResourceId")
+            .HasConversion(id => id.Value, id => new ResourceId(id))
+            .HasColumnName("CashResourceId")
+            .IsRequired();
+    }
+
+    public void Configure(EntityTypeBuilder<CustomerPaymentCashFlow> builder)
+    {
+        ConfigureStockflow(builder, "CustomerPaymentCashFlows");
+
+        builder
+            .Property<EventId>("_customerPaymentId")
+            .HasConversion(id => id.Value, id => new EventId(id))
+            .HasColumnName("CustomerPaymentId")
+            .IsRequired();
+
+        builder
+            .Property<ResourceId>("_cashResourceId")
+            .HasConversion(id => id.Value, id => new ResourceId(id))
+            .HasColumnName("CashResourceId")
+            .IsRequired();
+    }
+
+    public void Configure(EntityTypeBuilder<PaysFor> builder)
+    {
+        builder.HasKey(link => link.Id);
+
+        builder
+            .Property(link => link.Id)
+            .HasConversion(id => id.Value, id => new DualityId(id));
+
+        builder
+            .Property<EventId>("_firstEventId")
+            .HasConversion(id => id.Value, id => new EventId(id))
+            .HasColumnName("SaleId")
+            .IsRequired();
+
+        builder
+            .Property<EventId>("_secondEventId")
+            .HasConversion(id => id.Value, id => new EventId(id))
+            .HasColumnName("CustomerPaymentId")
+            .IsRequired();
+
+        builder
+            .HasIndex("_firstEventId", "_secondEventId")
+            .IsUnique();
+
+        builder.ToTable("PaysFor");
     }
 
     public void Configure(EntityTypeBuilder<SalesOrder> builder)

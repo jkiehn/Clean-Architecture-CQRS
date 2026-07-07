@@ -12,8 +12,12 @@ internal sealed class WriteDbContext : DbContext
     public DbSet<Vendor> Vendors { get; set; }
     public DbSet<Employee> Employees { get; set; }
     public DbSet<Item> Items { get; set; }
+    public DbSet<Cash> CashResources { get; set; }
     public DbSet<Sale> Sales { get; set; }
     public DbSet<SalesLine> SalesLines { get; set; }
+    public DbSet<CustomerPayment> CustomerPayments { get; set; }
+    public DbSet<CustomerPaymentCashFlow> CustomerPaymentCashFlows { get; set; }
+    public DbSet<PaysFor> PaysFors { get; set; }
     public DbSet<SalesOrder> SalesOrders { get; set; }
     public DbSet<SalesOrderLine> SalesOrderLines { get; set; }
     public DbSet<ItContract> ItContracts { get; set; }
@@ -33,8 +37,12 @@ internal sealed class WriteDbContext : DbContext
         modelBuilder.ApplyConfiguration<Vendor>(configuration);
         modelBuilder.ApplyConfiguration<Employee>(configuration);
         modelBuilder.ApplyConfiguration<Item>(configuration);
+        modelBuilder.ApplyConfiguration<Cash>(configuration);
         modelBuilder.ApplyConfiguration<Sale>(configuration);
         modelBuilder.ApplyConfiguration<SalesLine>(configuration);
+        modelBuilder.ApplyConfiguration<CustomerPayment>(configuration);
+        modelBuilder.ApplyConfiguration<CustomerPaymentCashFlow>(configuration);
+        modelBuilder.ApplyConfiguration<PaysFor>(configuration);
         modelBuilder.ApplyConfiguration<SalesOrder>(configuration);
         modelBuilder.ApplyConfiguration<SalesOrderLine>(configuration);
         modelBuilder.ApplyConfiguration<ItContract>(configuration);
