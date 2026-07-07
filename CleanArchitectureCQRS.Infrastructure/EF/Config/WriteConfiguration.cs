@@ -131,11 +131,13 @@ internal sealed class WriteConfiguration : IEntityTypeConfiguration<SampleEntity
         builder
             .Property<decimal>("_unitPrice")
             .HasColumnName("UnitPrice")
+            .HasPrecision(18, 2)
             .IsRequired();
 
         builder
             .Property<decimal>("_quantity")
             .HasColumnName("Quantity")
+            .HasPrecision(18, 2)
             .IsRequired();
     }
 
@@ -267,11 +269,13 @@ internal sealed class WriteConfiguration : IEntityTypeConfiguration<SampleEntity
         builder
             .Property<decimal>("_unitPrice")
             .HasColumnName("UnitPrice")
+            .HasPrecision(18, 2)
             .IsRequired();
 
         builder
             .Property<decimal>("_quantity")
             .HasColumnName("Quantity")
+            .HasPrecision(18, 2)
             .IsRequired();
     }
 
@@ -400,7 +404,8 @@ internal sealed class WriteConfiguration : IEntityTypeConfiguration<SampleEntity
 
         builder
             .Property<decimal?>("_amount")
-            .HasColumnName("Amount");
+            .HasColumnName("Amount")
+            .HasPrecision(18, 2);
 
         builder.ToTable(tableName);
     }

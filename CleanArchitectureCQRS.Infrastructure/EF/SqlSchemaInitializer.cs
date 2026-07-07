@@ -1,447 +1,94 @@
+using System.Data;
 using CleanArchitectureCQRS.Infrastructure.EF.Contexts;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace CleanArchitectureCQRS.Infrastructure.EF;
 
 public static class SqlSchemaInitializer
 {
-    private const string EnsureAgentTablesSql = """
-        IF SCHEMA_ID(N'SampleEntity') IS NULL
+    private const string MigrationHistoryTableName = "__EFMigrationsHistory";
+    private const string MigrationHistoryCreateSql = """
+        IF OBJECT_ID(N'[dbo].[__EFMigrationsHistory]', N'U') IS NULL
         BEGIN
-            EXEC(N'CREATE SCHEMA [SampleEntity]');
+            CREATE TABLE [dbo].[__EFMigrationsHistory]
+            (
+                [MigrationId] nvarchar(150) NOT NULL,
+                [ProductVersion] nvarchar(32) NOT NULL,
+                CONSTRAINT [PK___EFMigrationsHistory] PRIMARY KEY ([MigrationId])
+            );
         END
+        """;
 
-        IF OBJECT_ID(N'[SampleEntity].[Customers]', N'U') IS NULL
+    private const string ExistingDatabaseBridgeSql = """
+        IF OBJECT_ID(N'[SampleEntity].[Cash]', N'U') IS NULL
         BEGIN
-            CREATE TABLE [SampleEntity].[Customers]
+            CREATE TABLE [SampleEntity].[Cash]
             (
                 [Id] uniqueidentifier NOT NULL,
                 [Name] nvarchar(max) NOT NULL,
-                [Email] nvarchar(max) NOT NULL,
-                [Version] int NOT NULL CONSTRAINT [DF_Customers_Version] DEFAULT (0),
-                CONSTRAINT [PK_Customers] PRIMARY KEY ([Id])
+                [Version] int NOT NULL CONSTRAINT [DF_Cash_Version] DEFAULT (0),
+                CONSTRAINT [PK_Cash] PRIMARY KEY ([Id])
             );
         END
-        ELSE IF COL_LENGTH(N'[SampleEntity].[Customers]', N'Version') IS NULL
-        BEGIN
-            ALTER TABLE [SampleEntity].[Customers]
-            ADD [Version] int NOT NULL CONSTRAINT [DF_Customers_Version] DEFAULT (0);
-        END
 
-        IF OBJECT_ID(N'[SampleEntity].[Vendors]', N'U') IS NULL
+        IF OBJECT_ID(N'[SampleEntity].[CustomerPayments]', N'U') IS NULL
         BEGIN
-            CREATE TABLE [SampleEntity].[Vendors]
-            (
-                [Id] uniqueidentifier NOT NULL,
-                [Name] nvarchar(max) NOT NULL,
-                [Email] nvarchar(max) NOT NULL,
-                [Version] int NOT NULL CONSTRAINT [DF_Vendors_Version] DEFAULT (0),
-                CONSTRAINT [PK_Vendors] PRIMARY KEY ([Id])
-            );
-        END
-        ELSE IF COL_LENGTH(N'[SampleEntity].[Vendors]', N'Version') IS NULL
-        BEGIN
-            ALTER TABLE [SampleEntity].[Vendors]
-            ADD [Version] int NOT NULL CONSTRAINT [DF_Vendors_Version] DEFAULT (0);
-        END
-
-        IF OBJECT_ID(N'[SampleEntity].[Employees]', N'U') IS NULL
-        BEGIN
-            CREATE TABLE [SampleEntity].[Employees]
-            (
-                [Id] uniqueidentifier NOT NULL,
-                [Name] nvarchar(max) NOT NULL,
-                [Email] nvarchar(max) NOT NULL,
-                [SocialSecurityNumber] nvarchar(max) NOT NULL,
-                [Version] int NOT NULL CONSTRAINT [DF_Employees_Version] DEFAULT (0),
-                CONSTRAINT [PK_Employees] PRIMARY KEY ([Id])
-            );
-        END
-        ELSE IF COL_LENGTH(N'[SampleEntity].[Employees]', N'Version') IS NULL
-        BEGIN
-            ALTER TABLE [SampleEntity].[Employees]
-            ADD [Version] int NOT NULL CONSTRAINT [DF_Employees_Version] DEFAULT (0);
-        END
-
-        IF OBJECT_ID(N'[SampleEntity].[Employees]', N'U') IS NOT NULL
-            AND COL_LENGTH(N'[SampleEntity].[Employees]', N'SocialSecurityNumber') IS NULL
-        BEGIN
-            ALTER TABLE [SampleEntity].[Employees]
-            ADD [SocialSecurityNumber] nvarchar(max) NOT NULL CONSTRAINT [DF_Employees_SocialSecurityNumber] DEFAULT (N'');
-        END
-
-        IF OBJECT_ID(N'[SampleEntity].[Items]', N'U') IS NULL
-        BEGIN
-            CREATE TABLE [SampleEntity].[Items]
-            (
-                [Id] uniqueidentifier NOT NULL,
-                [Name] nvarchar(max) NOT NULL,
-                [Version] int NOT NULL CONSTRAINT [DF_Items_Version] DEFAULT (0),
-                CONSTRAINT [PK_Items] PRIMARY KEY ([Id])
-            );
-        END
-        ELSE IF COL_LENGTH(N'[SampleEntity].[Items]', N'Version') IS NULL
-        BEGIN
-            ALTER TABLE [SampleEntity].[Items]
-            ADD [Version] int NOT NULL CONSTRAINT [DF_Items_Version] DEFAULT (0);
-        END
-
-        IF OBJECT_ID(N'[SampleEntity].[Sales]', N'U') IS NULL
-        BEGIN
-            CREATE TABLE [SampleEntity].[Sales]
+            CREATE TABLE [SampleEntity].[CustomerPayments]
             (
                 [Id] uniqueidentifier NOT NULL,
                 [When] datetimeoffset NOT NULL,
                 [EndWhen] datetimeoffset NULL,
                 [Amount] decimal(18,2) NULL,
-                [InternalParticipationId] uniqueidentifier NOT NULL,
-                [EmployeeId] uniqueidentifier NOT NULL,
                 [ExternalParticipationId] uniqueidentifier NOT NULL,
                 [CustomerId] uniqueidentifier NOT NULL,
-                [Version] int NOT NULL CONSTRAINT [DF_Sales_Version] DEFAULT (0),
-                CONSTRAINT [PK_Sales] PRIMARY KEY ([Id])
+                [CashFlowId] uniqueidentifier NOT NULL,
+                [CashResourceId] uniqueidentifier NOT NULL,
+                [Version] int NOT NULL CONSTRAINT [DF_CustomerPayments_Version] DEFAULT (0),
+                CONSTRAINT [PK_CustomerPayments] PRIMARY KEY ([Id])
             );
         END
-        ELSE IF COL_LENGTH(N'[SampleEntity].[Sales]', N'Version') IS NULL
-        BEGIN
-            ALTER TABLE [SampleEntity].[Sales]
-            ADD [Version] int NOT NULL CONSTRAINT [DF_Sales_Version] DEFAULT (0);
-        END
 
-        IF OBJECT_ID(N'[SampleEntity].[Sales]', N'U') IS NOT NULL
-            AND COL_LENGTH(N'[SampleEntity].[Sales]', N'When') IS NULL
+        IF OBJECT_ID(N'[SampleEntity].[CustomerPaymentCashFlows]', N'U') IS NULL
         BEGIN
-            ALTER TABLE [SampleEntity].[Sales]
-            ADD [When] datetimeoffset NOT NULL CONSTRAINT [DF_Sales_When] DEFAULT (SYSDATETIMEOFFSET());
-        END
-
-        IF OBJECT_ID(N'[SampleEntity].[Sales]', N'U') IS NOT NULL
-            AND COL_LENGTH(N'[SampleEntity].[Sales]', N'EndWhen') IS NULL
-        BEGIN
-            ALTER TABLE [SampleEntity].[Sales]
-            ADD [EndWhen] datetimeoffset NULL;
-        END
-
-        IF OBJECT_ID(N'[SampleEntity].[Sales]', N'U') IS NOT NULL
-            AND COL_LENGTH(N'[SampleEntity].[Sales]', N'Amount') IS NULL
-        BEGIN
-            ALTER TABLE [SampleEntity].[Sales]
-            ADD [Amount] decimal(18,2) NULL;
-        END
-
-        IF OBJECT_ID(N'[SampleEntity].[Sales]', N'U') IS NOT NULL
-            AND COL_LENGTH(N'[SampleEntity].[Sales]', N'InternalParticipationId') IS NULL
-        BEGIN
-            ALTER TABLE [SampleEntity].[Sales]
-            ADD [InternalParticipationId] uniqueidentifier NOT NULL CONSTRAINT [DF_Sales_InternalParticipationId] DEFAULT (NEWID());
-        END
-
-        IF OBJECT_ID(N'[SampleEntity].[Sales]', N'U') IS NOT NULL
-            AND COL_LENGTH(N'[SampleEntity].[Sales]', N'EmployeeId') IS NULL
-        BEGIN
-            ALTER TABLE [SampleEntity].[Sales]
-            ADD [EmployeeId] uniqueidentifier NOT NULL CONSTRAINT [DF_Sales_EmployeeId] DEFAULT ('00000000-0000-0000-0000-000000000001');
-        END
-
-        IF OBJECT_ID(N'[SampleEntity].[Sales]', N'U') IS NOT NULL
-            AND COL_LENGTH(N'[SampleEntity].[Sales]', N'ExternalParticipationId') IS NULL
-        BEGIN
-            ALTER TABLE [SampleEntity].[Sales]
-            ADD [ExternalParticipationId] uniqueidentifier NOT NULL CONSTRAINT [DF_Sales_ExternalParticipationId] DEFAULT (NEWID());
-        END
-
-        IF OBJECT_ID(N'[SampleEntity].[Sales]', N'U') IS NOT NULL
-            AND COL_LENGTH(N'[SampleEntity].[Sales]', N'CustomerId') IS NULL
-        BEGIN
-            ALTER TABLE [SampleEntity].[Sales]
-            ADD [CustomerId] uniqueidentifier NOT NULL CONSTRAINT [DF_Sales_CustomerId] DEFAULT ('00000000-0000-0000-0000-000000000001');
-        END
-
-        IF OBJECT_ID(N'[SampleEntity].[SalesLines]', N'U') IS NULL
-        BEGIN
-            CREATE TABLE [SampleEntity].[SalesLines]
+            CREATE TABLE [SampleEntity].[CustomerPaymentCashFlows]
             (
                 [Id] uniqueidentifier NOT NULL,
                 [OccurrentEndId] uniqueidentifier NOT NULL,
                 [ResourceEndId] uniqueidentifier NOT NULL,
+                [CustomerPaymentId] uniqueidentifier NOT NULL,
+                [CashResourceId] uniqueidentifier NOT NULL,
+                [Version] int NOT NULL CONSTRAINT [DF_CustomerPaymentCashFlows_Version] DEFAULT (0),
+                CONSTRAINT [PK_CustomerPaymentCashFlows] PRIMARY KEY ([Id]),
+                CONSTRAINT [FK_CustomerPaymentCashFlows_CustomerPayments_CustomerPaymentId]
+                    FOREIGN KEY ([CustomerPaymentId]) REFERENCES [SampleEntity].[CustomerPayments]([Id]) ON DELETE CASCADE
+            );
+        END
+
+        IF OBJECT_ID(N'[SampleEntity].[PaysFor]', N'U') IS NULL
+        BEGIN
+            CREATE TABLE [SampleEntity].[PaysFor]
+            (
+                [Id] uniqueidentifier NOT NULL,
                 [SaleId] uniqueidentifier NOT NULL,
-                [ItemId] uniqueidentifier NOT NULL,
-                [UnitPrice] decimal(18,2) NOT NULL,
-                [Quantity] decimal(18,2) NOT NULL,
-                [Version] int NOT NULL CONSTRAINT [DF_SalesLines_Version] DEFAULT (0),
-                CONSTRAINT [PK_SalesLines] PRIMARY KEY ([Id]),
-                CONSTRAINT [FK_SalesLines_Sales_SaleId] FOREIGN KEY ([SaleId]) REFERENCES [SampleEntity].[Sales]([Id]) ON DELETE CASCADE
+                [CustomerPaymentId] uniqueidentifier NOT NULL,
+                [Version] int NOT NULL CONSTRAINT [DF_PaysFor_Version] DEFAULT (0),
+                CONSTRAINT [PK_PaysFor] PRIMARY KEY ([Id])
             );
         END
-        ELSE IF COL_LENGTH(N'[SampleEntity].[SalesLines]', N'Version') IS NULL
-        BEGIN
-            ALTER TABLE [SampleEntity].[SalesLines]
-            ADD [Version] int NOT NULL CONSTRAINT [DF_SalesLines_Version] DEFAULT (0);
-        END
 
-        IF OBJECT_ID(N'[SampleEntity].[SalesLines]', N'U') IS NOT NULL
-            AND COL_LENGTH(N'[SampleEntity].[SalesLines]', N'OccurrentEndId') IS NULL
+        IF NOT EXISTS
+        (
+            SELECT 1
+            FROM sys.indexes
+            WHERE name = N'IX_PaysFor_SaleId_CustomerPaymentId'
+              AND object_id = OBJECT_ID(N'[SampleEntity].[PaysFor]')
+        )
         BEGIN
-            ALTER TABLE [SampleEntity].[SalesLines]
-            ADD [OccurrentEndId] uniqueidentifier NOT NULL CONSTRAINT [DF_SalesLines_OccurrentEndId] DEFAULT (NEWID());
-        END
-
-        IF OBJECT_ID(N'[SampleEntity].[SalesLines]', N'U') IS NOT NULL
-            AND COL_LENGTH(N'[SampleEntity].[SalesLines]', N'ResourceEndId') IS NULL
-        BEGIN
-            ALTER TABLE [SampleEntity].[SalesLines]
-            ADD [ResourceEndId] uniqueidentifier NOT NULL CONSTRAINT [DF_SalesLines_ResourceEndId] DEFAULT (NEWID());
-        END
-
-        IF OBJECT_ID(N'[SampleEntity].[SalesLines]', N'U') IS NOT NULL
-            AND COL_LENGTH(N'[SampleEntity].[SalesLines]', N'SaleId') IS NULL
-        BEGIN
-            ALTER TABLE [SampleEntity].[SalesLines]
-            ADD [SaleId] uniqueidentifier NOT NULL CONSTRAINT [DF_SalesLines_SaleId] DEFAULT ('00000000-0000-0000-0000-000000000001');
-        END
-
-        IF OBJECT_ID(N'[SampleEntity].[SalesLines]', N'U') IS NOT NULL
-            AND COL_LENGTH(N'[SampleEntity].[SalesLines]', N'ItemId') IS NULL
-        BEGIN
-            ALTER TABLE [SampleEntity].[SalesLines]
-            ADD [ItemId] uniqueidentifier NOT NULL CONSTRAINT [DF_SalesLines_ItemId] DEFAULT ('00000000-0000-0000-0000-000000000001');
-        END
-
-        IF OBJECT_ID(N'[SampleEntity].[SalesLines]', N'U') IS NOT NULL
-            AND COL_LENGTH(N'[SampleEntity].[SalesLines]', N'UnitPrice') IS NULL
-        BEGIN
-            ALTER TABLE [SampleEntity].[SalesLines]
-            ADD [UnitPrice] decimal(18,2) NOT NULL CONSTRAINT [DF_SalesLines_UnitPrice] DEFAULT (0);
-        END
-
-        IF OBJECT_ID(N'[SampleEntity].[SalesLines]', N'U') IS NOT NULL
-            AND COL_LENGTH(N'[SampleEntity].[SalesLines]', N'Quantity') IS NULL
-        BEGIN
-            ALTER TABLE [SampleEntity].[SalesLines]
-            ADD [Quantity] decimal(18,2) NOT NULL CONSTRAINT [DF_SalesLines_Quantity] DEFAULT (1);
-        END
-
-        IF OBJECT_ID(N'[SampleEntity].[SalesOrders]', N'U') IS NULL
-        BEGIN
-            CREATE TABLE [SampleEntity].[SalesOrders]
-            (
-                [Id] uniqueidentifier NOT NULL,
-                [When] datetimeoffset NOT NULL,
-                [EndWhen] datetimeoffset NULL,
-                [Amount] decimal(18,2) NULL,
-                [InternalParticipationId] uniqueidentifier NOT NULL,
-                [EmployeeId] uniqueidentifier NOT NULL,
-                [ExternalParticipationId] uniqueidentifier NOT NULL,
-                [CustomerId] uniqueidentifier NOT NULL,
-                [Version] int NOT NULL CONSTRAINT [DF_SalesOrders_Version] DEFAULT (0),
-                CONSTRAINT [PK_SalesOrders] PRIMARY KEY ([Id])
-            );
-        END
-        ELSE IF COL_LENGTH(N'[SampleEntity].[SalesOrders]', N'Version') IS NULL
-        BEGIN
-            ALTER TABLE [SampleEntity].[SalesOrders]
-            ADD [Version] int NOT NULL CONSTRAINT [DF_SalesOrders_Version] DEFAULT (0);
-        END
-
-        IF OBJECT_ID(N'[SampleEntity].[SalesOrders]', N'U') IS NOT NULL
-            AND COL_LENGTH(N'[SampleEntity].[SalesOrders]', N'When') IS NULL
-        BEGIN
-            ALTER TABLE [SampleEntity].[SalesOrders]
-            ADD [When] datetimeoffset NOT NULL CONSTRAINT [DF_SalesOrders_When] DEFAULT (SYSDATETIMEOFFSET());
-        END
-
-        IF OBJECT_ID(N'[SampleEntity].[SalesOrders]', N'U') IS NOT NULL
-            AND COL_LENGTH(N'[SampleEntity].[SalesOrders]', N'EndWhen') IS NULL
-        BEGIN
-            ALTER TABLE [SampleEntity].[SalesOrders]
-            ADD [EndWhen] datetimeoffset NULL;
-        END
-
-        IF OBJECT_ID(N'[SampleEntity].[SalesOrders]', N'U') IS NOT NULL
-            AND COL_LENGTH(N'[SampleEntity].[SalesOrders]', N'Amount') IS NULL
-        BEGIN
-            ALTER TABLE [SampleEntity].[SalesOrders]
-            ADD [Amount] decimal(18,2) NULL;
-        END
-
-        IF OBJECT_ID(N'[SampleEntity].[SalesOrders]', N'U') IS NOT NULL
-            AND COL_LENGTH(N'[SampleEntity].[SalesOrders]', N'InternalParticipationId') IS NULL
-        BEGIN
-            ALTER TABLE [SampleEntity].[SalesOrders]
-            ADD [InternalParticipationId] uniqueidentifier NOT NULL CONSTRAINT [DF_SalesOrders_InternalParticipationId] DEFAULT (NEWID());
-        END
-
-        IF OBJECT_ID(N'[SampleEntity].[SalesOrders]', N'U') IS NOT NULL
-            AND COL_LENGTH(N'[SampleEntity].[SalesOrders]', N'EmployeeId') IS NULL
-        BEGIN
-            ALTER TABLE [SampleEntity].[SalesOrders]
-            ADD [EmployeeId] uniqueidentifier NOT NULL CONSTRAINT [DF_SalesOrders_EmployeeId] DEFAULT ('00000000-0000-0000-0000-000000000001');
-        END
-
-        IF OBJECT_ID(N'[SampleEntity].[SalesOrders]', N'U') IS NOT NULL
-            AND COL_LENGTH(N'[SampleEntity].[SalesOrders]', N'ExternalParticipationId') IS NULL
-        BEGIN
-            ALTER TABLE [SampleEntity].[SalesOrders]
-            ADD [ExternalParticipationId] uniqueidentifier NOT NULL CONSTRAINT [DF_SalesOrders_ExternalParticipationId] DEFAULT (NEWID());
-        END
-
-        IF OBJECT_ID(N'[SampleEntity].[SalesOrders]', N'U') IS NOT NULL
-            AND COL_LENGTH(N'[SampleEntity].[SalesOrders]', N'CustomerId') IS NULL
-        BEGIN
-            ALTER TABLE [SampleEntity].[SalesOrders]
-            ADD [CustomerId] uniqueidentifier NOT NULL CONSTRAINT [DF_SalesOrders_CustomerId] DEFAULT ('00000000-0000-0000-0000-000000000001');
-        END
-
-        IF OBJECT_ID(N'[SampleEntity].[SalesOrderLines]', N'U') IS NULL
-        BEGIN
-            CREATE TABLE [SampleEntity].[SalesOrderLines]
-            (
-                [Id] uniqueidentifier NOT NULL,
-                [OccurrentEndId] uniqueidentifier NOT NULL,
-                [ResourceEndId] uniqueidentifier NOT NULL,
-                [SalesOrderId] uniqueidentifier NOT NULL,
-                [ItemId] uniqueidentifier NOT NULL,
-                [UnitPrice] decimal(18,2) NOT NULL,
-                [Quantity] decimal(18,2) NOT NULL,
-                [Version] int NOT NULL CONSTRAINT [DF_SalesOrderLines_Version] DEFAULT (0),
-                CONSTRAINT [PK_SalesOrderLines] PRIMARY KEY ([Id]),
-                CONSTRAINT [FK_SalesOrderLines_SalesOrders_SalesOrderId] FOREIGN KEY ([SalesOrderId]) REFERENCES [SampleEntity].[SalesOrders]([Id]) ON DELETE CASCADE
-            );
-        END
-        ELSE IF COL_LENGTH(N'[SampleEntity].[SalesOrderLines]', N'Version') IS NULL
-        BEGIN
-            ALTER TABLE [SampleEntity].[SalesOrderLines]
-            ADD [Version] int NOT NULL CONSTRAINT [DF_SalesOrderLines_Version] DEFAULT (0);
-        END
-
-        IF OBJECT_ID(N'[SampleEntity].[SalesOrderLines]', N'U') IS NOT NULL
-            AND COL_LENGTH(N'[SampleEntity].[SalesOrderLines]', N'OccurrentEndId') IS NULL
-        BEGIN
-            ALTER TABLE [SampleEntity].[SalesOrderLines]
-            ADD [OccurrentEndId] uniqueidentifier NOT NULL CONSTRAINT [DF_SalesOrderLines_OccurrentEndId] DEFAULT (NEWID());
-        END
-
-        IF OBJECT_ID(N'[SampleEntity].[SalesOrderLines]', N'U') IS NOT NULL
-            AND COL_LENGTH(N'[SampleEntity].[SalesOrderLines]', N'ResourceEndId') IS NULL
-        BEGIN
-            ALTER TABLE [SampleEntity].[SalesOrderLines]
-            ADD [ResourceEndId] uniqueidentifier NOT NULL CONSTRAINT [DF_SalesOrderLines_ResourceEndId] DEFAULT (NEWID());
-        END
-
-        IF OBJECT_ID(N'[SampleEntity].[SalesOrderLines]', N'U') IS NOT NULL
-            AND COL_LENGTH(N'[SampleEntity].[SalesOrderLines]', N'SalesOrderId') IS NULL
-        BEGIN
-            ALTER TABLE [SampleEntity].[SalesOrderLines]
-            ADD [SalesOrderId] uniqueidentifier NOT NULL CONSTRAINT [DF_SalesOrderLines_SalesOrderId] DEFAULT ('00000000-0000-0000-0000-000000000001');
-        END
-
-        IF OBJECT_ID(N'[SampleEntity].[SalesOrderLines]', N'U') IS NOT NULL
-            AND COL_LENGTH(N'[SampleEntity].[SalesOrderLines]', N'ItemId') IS NULL
-        BEGIN
-            ALTER TABLE [SampleEntity].[SalesOrderLines]
-            ADD [ItemId] uniqueidentifier NOT NULL CONSTRAINT [DF_SalesOrderLines_ItemId] DEFAULT ('00000000-0000-0000-0000-000000000001');
-        END
-
-        IF OBJECT_ID(N'[SampleEntity].[SalesOrderLines]', N'U') IS NOT NULL
-            AND COL_LENGTH(N'[SampleEntity].[SalesOrderLines]', N'UnitPrice') IS NULL
-        BEGIN
-            ALTER TABLE [SampleEntity].[SalesOrderLines]
-            ADD [UnitPrice] decimal(18,2) NOT NULL CONSTRAINT [DF_SalesOrderLines_UnitPrice] DEFAULT (0);
-        END
-
-        IF OBJECT_ID(N'[SampleEntity].[SalesOrderLines]', N'U') IS NOT NULL
-            AND COL_LENGTH(N'[SampleEntity].[SalesOrderLines]', N'Quantity') IS NULL
-        BEGIN
-            ALTER TABLE [SampleEntity].[SalesOrderLines]
-            ADD [Quantity] decimal(18,2) NOT NULL CONSTRAINT [DF_SalesOrderLines_Quantity] DEFAULT (1);
-        END
-
-        IF OBJECT_ID(N'[SampleEntity].[ItContracts]', N'U') IS NULL
-        BEGIN
-            CREATE TABLE [SampleEntity].[ItContracts]
-            (
-                [Id] uniqueidentifier NOT NULL,
-                [When] datetimeoffset NOT NULL,
-                [EndWhen] datetimeoffset NOT NULL,
-                [Amount] decimal(18,2) NOT NULL,
-                [DepartmentCode] nvarchar(64) NOT NULL,
-                [InternalParticipationId] uniqueidentifier NOT NULL,
-                [ResponsibleEmployeeId] uniqueidentifier NOT NULL,
-                [ExternalParticipationId] uniqueidentifier NOT NULL,
-                [VendorId] uniqueidentifier NOT NULL,
-                [ServiceName] nvarchar(max) NOT NULL,
-                [Version] int NOT NULL CONSTRAINT [DF_ItContracts_Version] DEFAULT (0),
-                CONSTRAINT [PK_ItContracts] PRIMARY KEY ([Id])
-            );
-        END
-        ELSE IF COL_LENGTH(N'[SampleEntity].[ItContracts]', N'Version') IS NULL
-        BEGIN
-            ALTER TABLE [SampleEntity].[ItContracts]
-            ADD [Version] int NOT NULL CONSTRAINT [DF_ItContracts_Version] DEFAULT (0);
-        END
-
-        IF OBJECT_ID(N'[SampleEntity].[ItContracts]', N'U') IS NOT NULL
-            AND COL_LENGTH(N'[SampleEntity].[ItContracts]', N'When') IS NULL
-        BEGIN
-            ALTER TABLE [SampleEntity].[ItContracts]
-            ADD [When] datetimeoffset NOT NULL CONSTRAINT [DF_ItContracts_When] DEFAULT (SYSDATETIMEOFFSET());
-        END
-
-        IF OBJECT_ID(N'[SampleEntity].[ItContracts]', N'U') IS NOT NULL
-            AND COL_LENGTH(N'[SampleEntity].[ItContracts]', N'EndWhen') IS NULL
-        BEGIN
-            ALTER TABLE [SampleEntity].[ItContracts]
-            ADD [EndWhen] datetimeoffset NOT NULL CONSTRAINT [DF_ItContracts_EndWhen] DEFAULT (SYSDATETIMEOFFSET());
-        END
-
-        IF OBJECT_ID(N'[SampleEntity].[ItContracts]', N'U') IS NOT NULL
-            AND COL_LENGTH(N'[SampleEntity].[ItContracts]', N'Amount') IS NULL
-        BEGIN
-            ALTER TABLE [SampleEntity].[ItContracts]
-            ADD [Amount] decimal(18,2) NOT NULL CONSTRAINT [DF_ItContracts_Amount] DEFAULT (1);
-        END
-
-        IF OBJECT_ID(N'[SampleEntity].[ItContracts]', N'U') IS NOT NULL
-            AND COL_LENGTH(N'[SampleEntity].[ItContracts]', N'DepartmentCode') IS NULL
-        BEGIN
-            ALTER TABLE [SampleEntity].[ItContracts]
-            ADD [DepartmentCode] nvarchar(64) NOT NULL CONSTRAINT [DF_ItContracts_DepartmentCode] DEFAULT (N'UNKNOWN');
-        END
-
-        IF OBJECT_ID(N'[SampleEntity].[ItContracts]', N'U') IS NOT NULL
-            AND COL_LENGTH(N'[SampleEntity].[ItContracts]', N'InternalParticipationId') IS NULL
-        BEGIN
-            ALTER TABLE [SampleEntity].[ItContracts]
-            ADD [InternalParticipationId] uniqueidentifier NOT NULL CONSTRAINT [DF_ItContracts_InternalParticipationId] DEFAULT (NEWID());
-        END
-
-        IF OBJECT_ID(N'[SampleEntity].[ItContracts]', N'U') IS NOT NULL
-            AND COL_LENGTH(N'[SampleEntity].[ItContracts]', N'ResponsibleEmployeeId') IS NULL
-        BEGIN
-            ALTER TABLE [SampleEntity].[ItContracts]
-            ADD [ResponsibleEmployeeId] uniqueidentifier NOT NULL CONSTRAINT [DF_ItContracts_ResponsibleEmployeeId] DEFAULT ('00000000-0000-0000-0000-000000000001');
-        END
-
-        IF OBJECT_ID(N'[SampleEntity].[ItContracts]', N'U') IS NOT NULL
-            AND COL_LENGTH(N'[SampleEntity].[ItContracts]', N'ExternalParticipationId') IS NULL
-        BEGIN
-            ALTER TABLE [SampleEntity].[ItContracts]
-            ADD [ExternalParticipationId] uniqueidentifier NOT NULL CONSTRAINT [DF_ItContracts_ExternalParticipationId] DEFAULT (NEWID());
-        END
-
-        IF OBJECT_ID(N'[SampleEntity].[ItContracts]', N'U') IS NOT NULL
-            AND COL_LENGTH(N'[SampleEntity].[ItContracts]', N'VendorId') IS NULL
-        BEGIN
-            ALTER TABLE [SampleEntity].[ItContracts]
-            ADD [VendorId] uniqueidentifier NOT NULL CONSTRAINT [DF_ItContracts_VendorId] DEFAULT ('00000000-0000-0000-0000-000000000001');
-        END
-
-        IF OBJECT_ID(N'[SampleEntity].[ItContracts]', N'U') IS NOT NULL
-            AND COL_LENGTH(N'[SampleEntity].[ItContracts]', N'ServiceName') IS NULL
-        BEGIN
-            ALTER TABLE [SampleEntity].[ItContracts]
-            ADD [ServiceName] nvarchar(max) NOT NULL CONSTRAINT [DF_ItContracts_ServiceName] DEFAULT (N'Unnamed service');
+            CREATE UNIQUE INDEX [IX_PaysFor_SaleId_CustomerPaymentId]
+                ON [SampleEntity].[PaysFor]([SaleId], [CustomerPaymentId]);
         END
         """;
 
@@ -455,6 +102,106 @@ public static class SqlSchemaInitializer
             return;
         }
 
-        await writeDbContext.Database.ExecuteSqlRawAsync(EnsureAgentTablesSql);
+        if (!await HasAnyUserTableAsync(writeDbContext))
+        {
+            await writeDbContext.Database.MigrateAsync();
+            return;
+        }
+
+        var migrationsAssembly = writeDbContext.GetService<IMigrationsAssembly>();
+        var latestMigrationId = migrationsAssembly.Migrations.Keys.OrderBy(key => key).LastOrDefault();
+
+        if (string.IsNullOrWhiteSpace(latestMigrationId))
+        {
+            throw new InvalidOperationException("No EF migrations were found for WriteDbContext.");
+        }
+
+        var hasHistoryTable = await TableExistsAsync(writeDbContext, "dbo", MigrationHistoryTableName);
+
+        if (!hasHistoryTable)
+        {
+            await writeDbContext.Database.ExecuteSqlRawAsync(ExistingDatabaseBridgeSql);
+            await writeDbContext.Database.ExecuteSqlRawAsync(MigrationHistoryCreateSql);
+            await InsertMigrationHistoryAsync(writeDbContext, latestMigrationId);
+        }
+
+        await writeDbContext.Database.MigrateAsync();
+    }
+
+    private static async Task<bool> HasAnyUserTableAsync(DbContext dbContext)
+    {
+        await using var command = dbContext.Database.GetDbConnection().CreateCommand();
+        command.CommandText = """
+            SELECT TOP (1) 1
+            FROM INFORMATION_SCHEMA.TABLES
+            WHERE TABLE_TYPE = 'BASE TABLE'
+              AND TABLE_SCHEMA NOT IN ('sys')
+            """;
+
+        if (command.Connection!.State != ConnectionState.Open)
+        {
+            await command.Connection.OpenAsync();
+        }
+
+        var result = await command.ExecuteScalarAsync();
+        return result is not null && result != DBNull.Value;
+    }
+
+    private static async Task<bool> TableExistsAsync(DbContext dbContext, string schema, string tableName)
+    {
+        await using var command = dbContext.Database.GetDbConnection().CreateCommand();
+        command.CommandText = """
+            SELECT 1
+            FROM INFORMATION_SCHEMA.TABLES
+            WHERE TABLE_SCHEMA = @schema
+              AND TABLE_NAME = @tableName
+            """;
+
+        var schemaParameter = command.CreateParameter();
+        schemaParameter.ParameterName = "@schema";
+        schemaParameter.Value = schema;
+        command.Parameters.Add(schemaParameter);
+
+        var tableParameter = command.CreateParameter();
+        tableParameter.ParameterName = "@tableName";
+        tableParameter.Value = tableName;
+        command.Parameters.Add(tableParameter);
+
+        if (command.Connection!.State != ConnectionState.Open)
+        {
+            await command.Connection.OpenAsync();
+        }
+
+        var result = await command.ExecuteScalarAsync();
+        return result is not null && result != DBNull.Value;
+    }
+
+    private static async Task InsertMigrationHistoryAsync(DbContext dbContext, string migrationId)
+    {
+        await using var command = dbContext.Database.GetDbConnection().CreateCommand();
+        command.CommandText = """
+            IF NOT EXISTS (SELECT 1 FROM [dbo].[__EFMigrationsHistory] WHERE [MigrationId] = @migrationId)
+            BEGIN
+                INSERT INTO [dbo].[__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+                VALUES (@migrationId, @productVersion);
+            END
+            """;
+
+        var migrationParameter = command.CreateParameter();
+        migrationParameter.ParameterName = "@migrationId";
+        migrationParameter.Value = migrationId;
+        command.Parameters.Add(migrationParameter);
+
+        var versionParameter = command.CreateParameter();
+        versionParameter.ParameterName = "@productVersion";
+        versionParameter.Value = typeof(DbContext).Assembly.GetName().Version?.ToString(3) ?? "10.0.0";
+        command.Parameters.Add(versionParameter);
+
+        if (command.Connection!.State != ConnectionState.Open)
+        {
+            await command.Connection.OpenAsync();
+        }
+
+        await command.ExecuteNonQueryAsync();
     }
 }
